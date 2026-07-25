@@ -4,16 +4,26 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing GitHub release tag to publish
+        required: true
+        type: string
 
 permissions:
   contents: write
   id-token: write
+
+env:
+  RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - uses: actions/setup-node@v6
         with:
@@ -30,7 +40,7 @@ jobs:
       - name: Verify release tag matches package version
         run: |
           version="$(node -p "require('./package.json').version")"
-          test "v${version}" = "${GITHUB_REF_NAME}"
+          test "v${version}" = "${RELEASE_TAG}"
 
   standalone:
     needs: verify
@@ -49,6 +59,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - uses: oven-sh/setup-bun@v2
 
@@ -59,4 +71,4 @@ jobs:
       - name: Upload standalone release assets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${GITHUB_REF_NAME}" "dist/release/ghui-${{ matrix.target }}.tar.gz" "dist/release/ghui-${{ matrix.target }}.tar.gz.sha256" --clobber
+        run: gh release upload "${RELEASE_TAG}" "dist/release/ghui-${{ matrix.target }}.tar.gz" "dist/release/ghui-${{ matrix.target }}.tar.gz.sha256" --clobber
