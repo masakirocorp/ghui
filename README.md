@@ -7,8 +7,14 @@ Terminal UI for keeping up with your open GitHub pull requests across repositori
 <img width="1420" height="856" alt="image" src="https://github.com/user-attachments/assets/5e560a4a-5887-4baa-a6d4-e1f4f0410c70" />
 
 ## Install
+Oh My Herdr uses the Masakiro companion build published at
+[`masakirocorp/ghui`](https://github.com/masakirocorp/ghui/releases). It adds
+the launch-scoped theme contract used by Oh My Herdr without changing your
+saved ghui preferences.
 
-Homebrew is the recommended install path on macOS and Linux. It installs a standalone `ghui` binary, so you do not need Bun or npm at runtime.
+Upstream ghui can be installed through Homebrew or npm:
+
+Homebrew installs a standalone `ghui` binary, so you do not need Bun or npm at runtime.
 
 ```bash
 brew install kitlangton/tap/ghui
@@ -61,12 +67,18 @@ bun run dev
 
 - `GHUI_PR_FETCH_LIMIT`: max PRs fetched, defaults to `200`
 - `GHUI_RUN_FETCH_LIMIT`: max workflow runs fetched per PR, defaults to `20`
+- `GHUI_THEME`: launch-only fixed theme override, such as `system`; invalid theme IDs are ignored
 
 Example:
 
 ```bash
 GHUI_PR_FETCH_LIMIT=100 ghui
 ```
+
+Oh My Herdr launches ghui with `GHUI_THEME=system`, then provides the active
+Oh My Herdr foreground, background, cursor, and ANSI colors through the
+terminal protocol. The override applies only to that process and does not
+rewrite `config.json`.
 
 You can also copy `.env.example` to `.env` and edit the values locally.
 

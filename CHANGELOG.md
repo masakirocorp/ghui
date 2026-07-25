@@ -1,5 +1,12 @@
 # @kitlangton/ghui
 
+## 0.9.0-masakiro.1
+
+### Patch Changes
+
+- Add a launch-scoped `GHUI_THEME` override so terminal hosts can select a theme without changing the user's saved ghui preferences.
+- Publish standalone Masakiro companion binaries through GitHub Releases.
+
 ## 0.9.0
 
 ### Minor Changes
