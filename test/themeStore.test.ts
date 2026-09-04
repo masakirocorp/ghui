@@ -4,6 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Effect } from "effect"
 import { loadStoredEditorConfig, loadStoredShowScrollbars, loadStoredSystemThemeAutoReload, loadStoredThemeConfig } from "../src/themeStore.js"
+import { runIsolatedProbe } from "./isolatedProbe.ts"
 
 const originalConfigDir = process.env.GHUI_CONFIG_DIR
 const originalTheme = process.env.GHUI_THEME
@@ -37,10 +38,16 @@ const useTempConfig = async (content?: string) => {
 	tempDirs.push(dir)
 	process.env.GHUI_CONFIG_DIR = dir
 	if (content !== undefined) await writeFile(join(dir, "config.json"), content)
+	return dir
 }
 
 const loadSystemThemeAutoReload = () => Effect.runPromise(loadStoredSystemThemeAutoReload)
 const loadShowScrollbars = () => Effect.runPromise(loadStoredShowScrollbars)
+const systemThemeAutoReloadProbe = `
+	import { Effect } from "effect"
+	import { loadStoredSystemThemeAutoReload } from "./src/themeStore.ts"
+	console.log(await Effect.runPromise(loadStoredSystemThemeAutoReload))
+`
 
 describe("loadStoredSystemThemeAutoReload", () => {
 	test("defaults to disabled", async () => {
@@ -65,6 +72,49 @@ describe("loadStoredSystemThemeAutoReload", () => {
 		await useTempConfig('{"systemThemeAutoReload":"true"}')
 
 		expect(await loadSystemThemeAutoReload()).toBe(false)
+	})
+
+	test("launch enablement overrides a stored disabled setting without persisting", async () => {
+		const dir = await useTempConfig('{"systemThemeAutoReload":false}')
+
+		const value = await runIsolatedProbe(systemThemeAutoReloadProbe, {
+			GHUI_CONFIG_DIR: dir,
+			GHUI_SYSTEM_THEME_AUTO_RELOAD: "true",
+		})
+
+		expect(value).toBe("true")
+		expect(await Bun.file(join(dir, "config.json")).json()).toEqual({ systemThemeAutoReload: false })
+	})
+
+	test("launch disablement overrides a stored enabled setting without persisting", async () => {
+		const dir = await useTempConfig('{"systemThemeAutoReload":true}')
+
+		const value = await runIsolatedProbe(systemThemeAutoReloadProbe, {
+			GHUI_CONFIG_DIR: dir,
+			GHUI_SYSTEM_THEME_AUTO_RELOAD: "false",
+		})
+
+		expect(value).toBe("false")
+		expect(await Bun.file(join(dir, "config.json")).json()).toEqual({ systemThemeAutoReload: true })
+	})
+
+	test("absent launch override preserves stored and default behavior", async () => {
+		const storedDir = await useTempConfig('{"systemThemeAutoReload":true}')
+		const defaultDir = await useTempConfig()
+
+		const [stored, fallback] = await Promise.all([
+			runIsolatedProbe(systemThemeAutoReloadProbe, {
+				GHUI_CONFIG_DIR: storedDir,
+				GHUI_SYSTEM_THEME_AUTO_RELOAD: undefined,
+			}),
+			runIsolatedProbe(systemThemeAutoReloadProbe, {
+				GHUI_CONFIG_DIR: defaultDir,
+				GHUI_SYSTEM_THEME_AUTO_RELOAD: undefined,
+			}),
+		])
+
+		expect(stored).toBe("true")
+		expect(fallback).toBe("false")
 	})
 })
 

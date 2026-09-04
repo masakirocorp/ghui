@@ -5,6 +5,7 @@ export type GitHubOrganization = string & { readonly __brand: "GitHubOrganizatio
 export interface LaunchOptions {
 	readonly organization: GitHubOrganization | null
 	readonly showScrollbars: boolean | null
+	readonly systemThemeAutoReload: boolean | null
 }
 
 export interface ParsedLaunchOptions {
@@ -82,6 +83,7 @@ export const parseLaunchOptions = (args: readonly string[], env: Readonly<Record
 			options: {
 				organization: cliOrganization ?? parsedEnvironmentOrganization,
 				showScrollbars: parseBooleanOverride(env.GHUI_SHOW_SCROLLBARS),
+				systemThemeAutoReload: parseBooleanOverride(env.GHUI_SYSTEM_THEME_AUTO_RELOAD),
 			},
 			remainingArgs,
 		},

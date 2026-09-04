@@ -18,7 +18,7 @@ describe("launch organization options", () => {
 		expect(result).toEqual({
 			ok: true,
 			value: {
-				options: { organization: "kitlangton", showScrollbars: null },
+				options: { organization: "kitlangton", showScrollbars: null, systemThemeAutoReload: null },
 				remainingArgs: ["--help"],
 			},
 		})
@@ -26,7 +26,10 @@ describe("launch organization options", () => {
 
 	test("empty environment scope is unscoped", () => {
 		const result = parseLaunchOptions([], { GHUI_ORG: "   " })
-		expect(result).toEqual({ ok: true, value: { options: { organization: null, showScrollbars: null }, remainingArgs: [] } })
+		expect(result).toEqual({
+			ok: true,
+			value: { options: { organization: null, showScrollbars: null, systemThemeAutoReload: null }, remainingArgs: [] },
+		})
 	})
 
 	test("invalid organization input fails closed", () => {
@@ -36,7 +39,22 @@ describe("launch organization options", () => {
 
 	test("scrollbar override is parsed without affecting organization", () => {
 		const result = parseLaunchOptions([], { GHUI_SHOW_SCROLLBARS: "true" })
-		expect(result).toEqual({ ok: true, value: { options: { organization: null, showScrollbars: true }, remainingArgs: [] } })
+		expect(result).toEqual({
+			ok: true,
+			value: { options: { organization: null, showScrollbars: true, systemThemeAutoReload: null }, remainingArgs: [] },
+		})
+	})
+
+	test.each([
+		["true", true],
+		["false", false],
+		[undefined, null],
+		["TRUE", null],
+		["1", null],
+		["", null],
+	] as const)("system theme auto-reload override parses %p as %p", (value, expected) => {
+		const result = parseLaunchOptions([], { GHUI_SYSTEM_THEME_AUTO_RELOAD: value })
+		expect(result.ok && result.value.options.systemThemeAutoReload).toBe(expected)
 	})
 })
 

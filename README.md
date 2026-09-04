@@ -68,6 +68,7 @@ bun run dev
 - `GHUI_THEME`: launch-only fixed theme override, such as `system`; invalid theme IDs are ignored
 - `GHUI_ORG`: launch-only GitHub organization scope
 - `GHUI_SHOW_SCROLLBARS`: launch-only scrollbar override, set to `true` to show scrollbar rails
+- `GHUI_SYSTEM_THEME_AUTO_RELOAD`: launch-only system theme reload override; accepts `true` or `false`
 
 Pass `--org <login>` to scope the launch to an organization. The CLI option
 overrides `GHUI_ORG`; organization logins must be 1-39 ASCII letters, digits,
@@ -75,8 +76,10 @@ or single hyphens. Invalid CLI and environment values fail before the TUI
 starts. The organization scope filters HOME queues and repositories. Explicit
 repository views remain unchanged, and the scope is never written to config.
 
-`GHUI_SHOW_SCROLLBARS=true` takes precedence over the saved `showScrollbars`
-setting for that launch only. It does not rewrite `config.json`.
+`GHUI_SHOW_SCROLLBARS` and `GHUI_SYSTEM_THEME_AUTO_RELOAD` take precedence
+over their saved settings for that launch only. Boolean overrides accept the
+exact values `true` and `false`. Missing or invalid values preserve the saved
+settings. Launch overrides do not rewrite `config.json`.
 
 Example:
 
@@ -84,11 +87,12 @@ Example:
 GHUI_ORG=kitlangton ghui
 ghui --org kitlangton
 GHUI_SHOW_SCROLLBARS=true ghui --org kitlangton
+GHUI_THEME=system GHUI_SYSTEM_THEME_AUTO_RELOAD=true ghui
 ```
 
-Gardn may launch ghui with `GHUI_THEME=system` and its terminal color
-protocol. Theme and organization overrides apply only to that process and do
-not rewrite `config.json`.
+Gardn launches ghui with `GHUI_THEME=system`,
+`GHUI_SYSTEM_THEME_AUTO_RELOAD=true`, and its terminal color protocol. These
+launch overrides apply only to that process and do not rewrite `config.json`.
 You can also copy `.env.example` to `.env` and edit the values locally.
 
 ghui stores UI preferences in `config.json` under `GHUI_CONFIG_DIR` when set,

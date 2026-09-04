@@ -208,12 +208,14 @@ export const IssueDetailPane = ({
 	width,
 	height,
 	bodyLineLimit,
+	systemThemeGeneration,
 	onLinkOpen,
 }: {
 	issue: IssueItem | null
 	width: number
 	height: number
 	bodyLineLimit?: number
+	systemThemeGeneration: number
 	onLinkOpen?: (url: string) => void
 }) => {
 	const renderer = useRenderer()
@@ -224,7 +226,7 @@ export const IssueDetailPane = ({
 	const resolvedBodyLineLimit = bodyLineLimit ?? Math.max(1, height - titleLines.length - labelRows.length - 2)
 	const visibleBodyLines = useMemo(
 		() => bodyPreview(issue?.body ?? "", contentWidth, resolvedBodyLineLimit, { tableMode: "truncate", issueReferenceRepository: issue?.repository ?? null }),
-		[issue?.body, issue?.repository, contentWidth, resolvedBodyLineLimit],
+		[issue?.body, issue?.repository, contentWidth, resolvedBodyLineLimit, systemThemeGeneration],
 	)
 	const urlPositions = useMemo(() => collectUrlPositions(visibleBodyLines), [visibleBodyLines])
 
