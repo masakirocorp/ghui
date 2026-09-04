@@ -46,6 +46,15 @@ for (const target of selectedTargets()) {
 	if (target.id === hostTargetId) {
 		const version = Bun.spawnSync({ cmd: [binaryPath, "--version"], cwd: root, stdout: "pipe", stderr: "pipe" })
 		if (version.exitCode !== 0) throw new Error(`Standalone smoke failed for ${target.id}: ${version.stderr.toString()}`)
+		const scopedHelp = Bun.spawnSync({
+			cmd: [binaryPath, "--org", "masakirocorp", "--help"],
+			cwd: root,
+			stdout: "pipe",
+			stderr: "pipe",
+		})
+		if (scopedHelp.exitCode !== 0 || !scopedHelp.stdout.toString().includes("Usage:")) {
+			throw new Error(`Standalone launch-option smoke failed for ${target.id}: ${scopedHelp.stderr.toString()}`)
+		}
 	}
 
 	run(["tar", "-czf", assetPath, "-C", stageDir, "ghui", "LICENSE"])

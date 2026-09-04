@@ -13,7 +13,7 @@ import { colors, setSystemThemeColors } from "./ui/colors.js"
 import { LoadingLogoPane } from "./ui/LoadingLogo.js"
 import { SPINNER_INTERVAL_MS } from "./ui/spinner.js"
 
-const launchOptionResult = parseLaunchOptions(Bun.argv.slice(2), process.env)
+const launchOptionResult = parseLaunchOptions(process.argv.slice(2), process.env)
 if (!launchOptionResult.ok) {
 	console.error(`Invalid launch options: ${launchOptionResult.error.message}`)
 	process.exit(1)
