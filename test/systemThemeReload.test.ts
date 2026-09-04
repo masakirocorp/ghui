@@ -201,7 +201,7 @@ describe("createSystemThemeReloader", () => {
 		await h.clock.advance(200)
 		await h.clock.flush()
 
-		expect(h.applied).toEqual([B])
+		expect(h.applied).toEqual([A, B])
 		expect(h.notifyCount.value).toBe(1)
 		expect(h.reads.value).toBe(3)
 	})
@@ -217,7 +217,7 @@ describe("createSystemThemeReloader", () => {
 			await h.clock.flush()
 		}
 
-		expect(h.applied).toEqual([])
+		expect(h.applied).toEqual([A])
 		expect(h.notifyCount.value).toBe(0)
 		const skip = h.events.find((e) => e.kind === "skipped")
 		expect(skip?.kind === "skipped" && skip.reason).toBe("unchanged")
@@ -253,7 +253,8 @@ describe("createSystemThemeReloader", () => {
 		await h.clock.flush()
 
 		expect(h.reads.value).toBe(2)
-		expect(h.applied).toEqual([B])
+		expect(h.applied).toEqual([A, B])
+		expect(h.notifyCount.value).toBe(1)
 	})
 
 	test("second signal during retry-wait cancels the first reload", async () => {
@@ -274,7 +275,8 @@ describe("createSystemThemeReloader", () => {
 		await h.clock.advance(1000)
 		await h.clock.flush()
 
-		expect(h.applied).toEqual([C])
+		expect(h.applied).toEqual([A, C])
+		expect(h.notifyCount.value).toBe(1)
 		expect(h.events.some((e) => e.kind === "skipped" && e.reason === "cancelled")).toBe(true)
 	})
 
@@ -291,12 +293,12 @@ describe("createSystemThemeReloader", () => {
 		expect(skip?.kind === "skipped" && skip.reason).toBe("disabled")
 	})
 
-	test("primeBaseline does not apply or notify", async () => {
+	test("primeBaseline applies a complete initial palette without notifying", async () => {
 		const h = setupHarness({ initialReads: [A] })
 
 		await h.reloader.primeBaseline()
 
-		expect(h.applied).toEqual([])
+		expect(h.applied).toEqual([A])
 		expect(h.notifyCount.value).toBe(0)
 		expect(h.reads.value).toBe(1)
 	})
@@ -312,7 +314,8 @@ describe("createSystemThemeReloader", () => {
 			await h.clock.flush()
 		}
 
-		expect(h.applied).toEqual([])
+		expect(h.applied).toEqual([A])
+		expect(h.notifyCount.value).toBe(0)
 		const skip = h.events.find((e) => e.kind === "skipped")
 		expect(skip?.kind === "skipped" && skip.reason).toBe("unchanged")
 	})

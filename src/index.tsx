@@ -120,11 +120,11 @@ const systemThemeReloader = createSystemThemeReloader({
 	onEvent: logReloadEvent,
 })
 
-void systemThemeReloader.primeBaseline().catch(() => {})
-
 process.on("SIGUSR2", () => {
 	systemThemeReloader.requestReload()
 })
+
+await systemThemeReloader.primeBaseline().catch(() => {})
 
 const Bootstrap = () => {
 	const [appBundle, setAppBundle] = useState<AppBundle | null>(null)
