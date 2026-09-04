@@ -291,12 +291,12 @@ describe("createSystemThemeReloader", () => {
 		expect(skip?.kind === "skipped" && skip.reason).toBe("disabled")
 	})
 
-	test("primeBaseline does not apply or notify", async () => {
+	test("primeBaseline applies a complete initial palette without notifying", async () => {
 		const h = setupHarness({ initialReads: [A] })
 
 		await h.reloader.primeBaseline()
 
-		expect(h.applied).toEqual([])
+		expect(h.applied).toEqual([A])
 		expect(h.notifyCount.value).toBe(0)
 		expect(h.reads.value).toBe(1)
 	})

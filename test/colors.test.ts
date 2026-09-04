@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { filterThemeDefinitions, pairedThemeId, themeToneForThemeId } from "../src/ui/colors.js"
+import { colors, filterThemeDefinitions, pairedThemeId, setActiveTheme, themeToneForThemeId } from "../src/ui/colors.js"
 
 describe("filterThemeDefinitions", () => {
 	test("keeps dark and light themes in separate lists", () => {
@@ -64,5 +64,15 @@ describe("pairedThemeId", () => {
 	test("returns null for unpaired dark themes", () => {
 		expect(pairedThemeId("github-dark-dimmed", "light")).toBeNull()
 		expect(pairedThemeId("palenight", "light")).toBeNull()
+	})
+})
+
+describe("System theme colors", () => {
+	test("uses a readable foreground and background before terminal colors load", () => {
+		setActiveTheme("system")
+		const fallback = { background: colors.background, text: colors.text }
+		setActiveTheme("ghui")
+
+		expect(fallback).toEqual({ background: "#000000", text: "#ffffff" })
 	})
 })
