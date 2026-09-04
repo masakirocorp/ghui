@@ -40,6 +40,7 @@ import { useModalSelectionMovers } from "./useModalSelectionMovers.js"
 import { useAppKeymap } from "./useAppKeymap.js"
 import { useModalStack } from "./useModalStack.js"
 import { useItemMutations } from "../item/useItemMutations.js"
+import { useItemModalActions } from "../item/useItemModalActions.js"
 import { useSelectionDerivations } from "./useSelectionDerivations.js"
 import { useStartupTasks } from "./useStartupTasks.js"
 import { usePasteRouter } from "./usePasteRouter.js"
@@ -62,9 +63,9 @@ import { useClampedIndex } from "../ui/useClampedIndex.js"
 import { useCommandHandoffs } from "./useCommandHandoffs.js"
 import { useDiffCommentDerivations } from "./useDiffCommentDerivations.js"
 import { useDiffCommentNavigator } from "./useDiffCommentNavigator.js"
-import { useItemModalActions } from "../item/useItemModalActions.js"
 import { repositoryWorkspaceSurfaces, userWorkspaceSurfaces, type WorkspaceSurface } from "../workspaceSurfaces.js"
 import { detectedRepository, mockRepositoryCatalog, mockWorkspacePreferencesPath } from "../services/runtime.js"
+import { config } from "../config.js"
 
 export interface UseAppShellInput {
 	readonly systemThemeGeneration: number
@@ -350,6 +351,7 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		activeWorkspaceSurface,
 		detectedRepository,
 		mockRepositoryCatalog,
+		organization: config.organization,
 		flashNotice,
 	})
 	const {
@@ -413,12 +415,12 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		selectedDiffKey,
 		diffCommentThreads,
 	})
-	const getCurrentGroupIndex = (current: number) => groupIndexAt(groupStarts, current)
 	const { headerRight, headerLeftWidth, footerNotice, homeCrumb, breadcrumbSeparatorText, headerRepoWidth } = computeHeaderDerivations({
 		username,
 		notice,
 		headerFooterWidth,
 		selectedRepository,
+		organization: config.organization,
 	})
 	const { updatePullRequest, updateIssue, markPullRequestCompleted, restoreOptimisticPullRequest } = useItemMutations({
 		pullRequests,
@@ -504,11 +506,11 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		setFavoriteRepositories,
 		setRecentRepositories,
 	})
-
 	useStartupTasks({
 		username,
 		recentRepositories,
 		favoriteRepositories,
+		organization: config.organization,
 		detectedRepository,
 		pullRequestLoad,
 		issueLoad,
@@ -931,7 +933,7 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 			loadMoreSlotAvailable,
 			issueLoadMoreSlotAvailable,
 			groupStarts,
-			getCurrentGroupIndex,
+			getCurrentGroupIndex: (current) => groupIndexAt(groupStarts, current),
 			setSelectedIndex,
 			setSelectedIssueIndex,
 			setSelectedRepositoryIndex,

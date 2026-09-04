@@ -6,13 +6,18 @@ import { Effect } from "effect"
 import { appendFile } from "node:fs/promises"
 import { useEffect, useState } from "react"
 import { errorMessage } from "./errors.js"
+import { parseLaunchOptions } from "./launchOptions.js"
 import { createSystemThemeReloader, type SystemThemeReloadEvent } from "./systemThemeReload.js"
 import { setTuiSuspender } from "./tuiSuspension.js"
-import { loadStoredSystemThemeAutoReload } from "./themeStore.js"
 import { colors, setSystemThemeColors } from "./ui/colors.js"
 import { LoadingLogoPane } from "./ui/LoadingLogo.js"
 import { SPINNER_INTERVAL_MS } from "./ui/spinner.js"
 
+const launchOptionResult = parseLaunchOptions(Bun.argv.slice(2), process.env)
+if (!launchOptionResult.ok) {
+	console.error(`Invalid launch options: ${launchOptionResult.error.message}`)
+	process.exit(1)
+}
 process.env.OTUI_USE_ALTERNATE_SCREEN = "true"
 
 const addGhUiParsers = () =>
@@ -46,6 +51,10 @@ const logReloadEvent = (event: SystemThemeReloadEvent) => {
 	const line = `${new Date().toISOString()} ${JSON.stringify(event)}\n`
 	void appendFile(SYSTEM_THEME_DEBUG_LOG_PATH, line).catch(() => {})
 }
+const loadStoredSystemThemeAutoReloadForRuntime = () =>
+	Effect.tryPromise({ try: () => import("./themeStore.js"), catch: (cause) => cause }).pipe(
+		Effect.flatMap(({ loadStoredSystemThemeAutoReload }) => loadStoredSystemThemeAutoReload),
+	)
 
 const StartupLogo = ({ hint }: { readonly hint: string }) => {
 	const startupRenderer = useRenderer()
@@ -103,7 +112,7 @@ const systemThemeReloader = createSystemThemeReloader({
 		renderer.setBackgroundColor(colors.background)
 	},
 	notify: () => notifySystemThemeReload(),
-	isAutoReloadEnabled: () => Effect.runPromise(loadStoredSystemThemeAutoReload),
+	isAutoReloadEnabled: () => Effect.runPromise(loadStoredSystemThemeAutoReloadForRuntime()),
 	setTimer: (fn, ms) => globalThis.setTimeout(fn, ms),
 	clearTimer: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof globalThis.setTimeout>),
 	delay: (ms) => new Promise<void>((resolve) => globalThis.setTimeout(resolve, ms)),

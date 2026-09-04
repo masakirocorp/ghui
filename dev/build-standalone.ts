@@ -1,4 +1,4 @@
-import { chmod, mkdir, rm, writeFile } from "node:fs/promises"
+import { chmod, copyFile, mkdir, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { currentReleaseTargetId, findReleaseTarget, releaseTargets } from "./release-targets.js"
 
@@ -39,6 +39,7 @@ for (const target of selectedTargets()) {
 	const assetPath = join(releaseDir, assetName)
 
 	await mkdir(stageDir, { recursive: true })
+	await copyFile(join(root, "LICENSE"), join(stageDir, "LICENSE"))
 	run(["bun", "build", "--compile", "--bytecode", "--format=esm", `--target=${target.bunTarget}`, `--outfile=${binaryPath}`, "src/standalone.ts"])
 	await chmod(binaryPath, 0o755)
 
@@ -47,7 +48,7 @@ for (const target of selectedTargets()) {
 		if (version.exitCode !== 0) throw new Error(`Standalone smoke failed for ${target.id}: ${version.stderr.toString()}`)
 	}
 
-	run(["tar", "-czf", assetPath, "-C", stageDir, "ghui"])
+	run(["tar", "-czf", assetPath, "-C", stageDir, "ghui", "LICENSE"])
 	const checksumLine = `${await sha256(assetPath)}  ${assetName}`
 	checksums.push(checksumLine)
 	await writeFile(join(releaseDir, `${assetName}.sha256`), `${checksumLine}\n`)

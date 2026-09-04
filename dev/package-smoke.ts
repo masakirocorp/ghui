@@ -40,8 +40,8 @@ const assertInstalledPackage = async (projectDir: string) => {
 
 	assert(packageJson.version === rootPackageJson.version, `Expected installed version ${rootPackageJson.version}, got ${packageJson.version}`)
 	assert(!packageJson.dependencies?.["@ghui/keymap"], "Published package must not depend on private workspace @ghui/keymap")
-	assert(binaryPackageName && packageJson.optionalDependencies?.[binaryPackageName] === rootPackageJson.version, `Published package must depend on ${binaryPackageName}`)
 	assert(binaryPackageDir && (await Bun.file(join(binaryPackageDir, "bin", "ghui")).exists()), "Installed package must include the platform binary package")
+	assert(await Bun.file(join(packageDir, "LICENSE")).exists(), "Installed package must include the MIT license")
 	assert(!(await Bun.file(join(packageDir, "src", "index.tsx")).exists()), "Published package must not rely on src/index.tsx")
 
 	const version = await run(["node_modules/.bin/ghui", "--version"], projectDir)

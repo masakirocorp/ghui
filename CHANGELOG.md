@@ -1,5 +1,11 @@
 # @kitlangton/ghui
 
+## 0.10.0-masakiro.1
+
+### Minor Changes
+
+- Add launch-scoped GitHub organization filtering with strict `--org` and `GHUI_ORG` validation, isolated queue caches, organization-aware HOME repositories, and a non-persistent scrollbar override.
+
 ## 0.9.1
 
 ### Patch Changes

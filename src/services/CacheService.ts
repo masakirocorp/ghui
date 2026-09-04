@@ -16,8 +16,10 @@ import {
 	type PullRequestItem,
 	type RepositoryDetails,
 } from "../domain.js"
+import { config } from "../config.js"
 import type { IssueLoad } from "../issueLoad.js"
 import { type IssueView, issueViewCacheKey } from "../issueViews.js"
+import { repositoryBelongsToOrganization } from "../launchOptions.js"
 import { mergeCachedDetails } from "../pullRequestCache.js"
 import type { PullRequestLoad } from "../pullRequestLoad.js"
 import { type PullRequestView, viewCacheKey } from "../pullRequestViews.js"
@@ -760,11 +762,13 @@ const liveCacheService = (sql: SqlClient.SqlClient) => {
 				if (!entry.lastActivityAt || entry.lastActivityAt < date) entry.lastActivityAt = date
 			}
 			for (const row of prRows) {
+				if (!repositoryBelongsToOrganization(row.repository, config.organization)) continue
 				const entry = ensure(row.repository)
 				entry.pullRequestCount = row.count
 				bumpActivity(entry, row.last_activity_at)
 			}
 			for (const row of issueRows) {
+				if (!repositoryBelongsToOrganization(row.repository, config.organization)) continue
 				const entry = ensure(row.repository)
 				entry.issueCount = row.count
 				bumpActivity(entry, row.last_activity_at)

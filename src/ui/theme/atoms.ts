@@ -1,14 +1,14 @@
 import { Effect } from "effect"
 import * as Atom from "effect/unstable/reactivity/Atom"
+import { config } from "../../config.js"
 import { detectSystemAppearance } from "../../systemAppearance.js"
 import { resolveThemeId, type ThemeConfig } from "../../themeConfig.js"
 import { loadStoredShowScrollbars, loadStoredThemeConfig } from "../../themeStore.js"
 import { setActiveTheme, type ThemeId, type ThemeTone } from "../colors.js"
-
 const [initialConfig, initialAppearance, initialShowScrollbars] = await Promise.all([
 	Effect.runPromise(loadStoredThemeConfig),
 	detectSystemAppearance(),
-	Effect.runPromise(loadStoredShowScrollbars),
+	config.showScrollbars === null ? Effect.runPromise(loadStoredShowScrollbars) : Promise.resolve(config.showScrollbars),
 ])
 const initialId = resolveThemeId(initialConfig, initialAppearance)
 

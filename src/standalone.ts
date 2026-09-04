@@ -1,17 +1,24 @@
 import packageJson from "../package.json" with { type: "json" }
+import { parseLaunchOptions } from "./launchOptions.js"
 
 const help = `ghui ${packageJson.version}
 
 Terminal UI for GitHub pull requests.
 
 Usage:
-  ghui              Start the TUI
+  ghui [--org <login>]  Start the TUI
   ghui -v, --version
                     Print the installed version
   ghui -h, --help   Show this help message
 `
 
-const args = Bun.argv.slice(2)
+const rawArgs = Bun.argv.slice(2)
+const parsedLaunchOptions = parseLaunchOptions(rawArgs, process.env)
+if (!parsedLaunchOptions.ok) {
+	console.error(`Invalid launch options: ${parsedLaunchOptions.error.message}`)
+	process.exit(1)
+}
+const args = parsedLaunchOptions.value.remainingArgs
 const command = args[0]
 const commands = ["help", "version"]
 

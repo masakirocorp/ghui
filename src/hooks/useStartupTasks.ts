@@ -1,6 +1,7 @@
 import { useEffect } from "react"
 import { devLog } from "../devLog.js"
 import type { IssueItem, PullRequestItem } from "../domain.js"
+import { repositoryBelongsToOrganization, type GitHubOrganization } from "../launchOptions.js"
 import type { RepoRollupRow } from "../services/CacheService.js"
 
 interface PullRequestLoadShape {
@@ -15,6 +16,7 @@ export interface UseStartupTasksInput {
 	readonly username: string | null
 	readonly recentRepositories: readonly string[]
 	readonly favoriteRepositories: Readonly<Record<string, boolean>>
+	readonly organization: GitHubOrganization | null
 	readonly detectedRepository: string | null
 	readonly pullRequestLoad: PullRequestLoadShape | null
 	readonly issueLoad: IssueLoadShape | null
@@ -45,6 +47,7 @@ export const useStartupTasks = ({
 	username,
 	recentRepositories,
 	favoriteRepositories,
+	organization,
 	detectedRepository,
 	pullRequestLoad,
 	issueLoad,
@@ -67,13 +70,18 @@ export const useStartupTasks = ({
 			.then((rows) => setRepoRollup(rows))
 			.catch((cause) => devLog("useStartupTasks:readRepoRollupFailed", { username, cause: String(cause) }))
 	}, [username, pullRequestLoad?.fetchedAt, issueLoad?.fetchedAt, readRepoRollup, setRepoRollup])
-
 	useEffect(() => {
 		if (!username) return
-		const repositories = Array.from(new Set([...recentRepositories, ...Object.keys(favoriteRepositories), ...(detectedRepository ? [detectedRepository] : [])]))
+		const repositories = Array.from(
+			new Set(
+				[...recentRepositories, ...Object.keys(favoriteRepositories), ...(detectedRepository ? [detectedRepository] : [])].filter((repository) =>
+					repositoryBelongsToOrganization(repository, organization),
+				),
+			),
+		)
 		if (repositories.length === 0) return
 		void prewarmRepositoryDetails(repositories).catch((cause) => devLog("useStartupTasks:prewarmFailed", { repositories, cause: String(cause) }))
-	}, [username, recentRepositories, favoriteRepositories, detectedRepository, prewarmRepositoryDetails])
+	}, [username, recentRepositories, favoriteRepositories, organization, detectedRepository, prewarmRepositoryDetails])
 
 	useEffect(() => {
 		if (!persistQueueSelection) return
