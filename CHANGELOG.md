@@ -1,5 +1,11 @@
 # @kitlangton/ghui
 
+## 0.10.0-masakiro.4
+
+### Patch Changes
+
+- 11a6ec3: Let Gardn enable live system-theme reloads for each ghui launch.
+
 ## 0.10.0-masakiro.3
 
 ### Patch Changes
