@@ -249,7 +249,7 @@ const makeSystemColors = (terminal?: TerminalThemeColors): ColorPalette => {
 	const diffAlpha = isDark ? 0.22 : 0.14
 
 	return {
-		background: "transparent",
+		background: terminal === undefined ? terminalBackground : "transparent",
 		modalBackground: panel,
 		text,
 		muted: mutedTextColor(terminalBackground),

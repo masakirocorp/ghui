@@ -126,6 +126,7 @@ export const createSystemThemeReloader = (deps: SystemThemeReloadDeps): SystemTh
 		async primeBaseline() {
 			const palette = await deps.readPalette(config.readTimeoutMs)
 			if (hasCompletePalette(palette)) {
+				deps.applyColors(palette)
 				lastAppliedSignature = paletteSignature(palette)
 			}
 		},
