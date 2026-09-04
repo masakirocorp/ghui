@@ -1,5 +1,11 @@
 # @kitlangton/ghui
 
+## 0.10.0-masakiro.2
+
+### Patch Changes
+
+- Fix launch-option parsing in compiled standalone binaries so organization scope is applied before the TUI starts.
+
 ## 0.10.0-masakiro.1
 
 ### Minor Changes

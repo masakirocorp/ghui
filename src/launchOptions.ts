@@ -91,7 +91,7 @@ let cachedLaunchOptions: LaunchOptions | null = null
 
 export const getLaunchOptions = (): LaunchOptions => {
 	if (cachedLaunchOptions !== null) return cachedLaunchOptions
-	const result = parseLaunchOptions(Bun.argv.slice(2), process.env)
+	const result = parseLaunchOptions(process.argv.slice(2), process.env)
 	if (!result.ok) throw new Error(result.error.message)
 	cachedLaunchOptions = result.value.options
 	return cachedLaunchOptions

@@ -12,7 +12,7 @@ Usage:
   ghui -h, --help   Show this help message
 `
 
-const rawArgs = Bun.argv.slice(2)
+const rawArgs = process.argv.slice(2)
 const parsedLaunchOptions = parseLaunchOptions(rawArgs, process.env)
 if (!parsedLaunchOptions.ok) {
 	console.error(`Invalid launch options: ${parsedLaunchOptions.error.message}`)
