@@ -31,14 +31,11 @@ const RunRow = ({
 
 type ResultState<A> = { readonly status: "loading" } | { readonly status: "error"; readonly message: string } | { readonly status: "ready"; readonly value: A }
 
-const GLYPH_COLOR: Record<RunGlyphKind, string> = {
-	success: colors.status.passing,
-	failure: colors.status.failing,
-	"in-progress": colors.status.pending,
-	queued: colors.muted,
-	cancelled: colors.status.failing,
-	skipped: colors.muted,
-	neutral: colors.muted,
+const glyphColor = (kind: RunGlyphKind): string => {
+	if (kind === "success") return colors.status.passing
+	if (kind === "failure" || kind === "cancelled") return colors.status.failing
+	if (kind === "in-progress") return colors.status.pending
+	return colors.muted
 }
 
 const relativeAge = (date: Date | null, now: Date): string => {
@@ -116,7 +113,7 @@ const RunsList = ({
 				return (
 					<RunRow key={run.id} selected={selected} width={paneWidth} onSelect={() => onSelectRow(index)} onActivate={() => onActivateRow(index)}>
 						<span fg={selected ? colors.accent : colors.muted}>{selected ? "▸ " : "  "}</span>
-						<span fg={GLYPH_COLOR[runGlyphKind(run.status, run.conclusion)]}>{runGlyph(run.status, run.conclusion)} </span>
+						<span fg={glyphColor(runGlyphKind(run.status, run.conclusion))}>{runGlyph(run.status, run.conclusion)} </span>
 						<span fg={colors.text} attributes={selected ? TextAttributes.BOLD : 0}>
 							{fitCell(run.workflowName, nameWidth)}
 						</span>
@@ -164,7 +161,7 @@ const RunDetail = ({
 						onActivate={() => onActivateRow(index)}
 					>
 						<span fg={colors.muted}>{indent}</span>
-						<span fg={GLYPH_COLOR[row.glyphKind]}>{row.glyph} </span>
+						<span fg={glyphColor(row.glyphKind)}>{row.glyph} </span>
 						<span fg={row.kind === "job" ? colors.text : colors.muted} attributes={row.kind === "job" ? TextAttributes.BOLD : 0}>
 							{fitCell(name, nameWidth)}
 						</span>

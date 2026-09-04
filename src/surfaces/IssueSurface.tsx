@@ -29,6 +29,7 @@ export interface IssueSurfaceProps {
 	readonly detailScrollRef: MutableRefObject<ScrollBoxRenderable | null>
 	readonly detailPreviewScrollRef: MutableRefObject<ScrollBoxRenderable | null>
 	readonly detailFullView: boolean
+	readonly systemThemeGeneration: number
 	readonly onLinkOpen?: (url: string) => void
 }
 
@@ -54,13 +55,21 @@ export const IssueSurface = ({
 	detailScrollRef,
 	detailPreviewScrollRef,
 	detailFullView,
+	systemThemeGeneration,
 	onLinkOpen,
 }: IssueSurfaceProps) => {
 	if (detailFullView) {
 		const fullDetailNeedsScroll = selectedIssue !== null && getIssueDetailContentHeight(selectedIssue, contentWidth, wideBodyHeight, DETAIL_BODY_SCROLL_LIMIT) > wideBodyHeight
 		return (
 			<scrollbox ref={detailScrollRef} focusable={false} height={wideBodyHeight} flexGrow={0} verticalScrollbarOptions={{ visible: showScrollbars && fullDetailNeedsScroll }}>
-				<IssueDetailPane issue={selectedIssue} width={contentWidth} height={wideBodyHeight} bodyLineLimit={DETAIL_BODY_SCROLL_LIMIT} {...(onLinkOpen ? { onLinkOpen } : {})} />
+				<IssueDetailPane
+					issue={selectedIssue}
+					width={contentWidth}
+					height={wideBodyHeight}
+					bodyLineLimit={DETAIL_BODY_SCROLL_LIMIT}
+					systemThemeGeneration={systemThemeGeneration}
+					{...(onLinkOpen ? { onLinkOpen } : {})}
+				/>
 			</scrollbox>
 		)
 	}
@@ -123,6 +132,7 @@ export const IssueSurface = ({
 							issue={selectedIssue}
 							width={rightPaneWidth}
 							height={wideBodyHeight}
+							systemThemeGeneration={systemThemeGeneration}
 							bodyLineLimit={DETAIL_BODY_SCROLL_LIMIT}
 							{...(onLinkOpen ? { onLinkOpen } : {})}
 						/>
@@ -160,6 +170,7 @@ export const IssueSurface = ({
 					issue={selectedIssue}
 					width={contentWidth}
 					height={narrowIssueDetailHeight}
+					systemThemeGeneration={systemThemeGeneration}
 					bodyLineLimit={DETAIL_BODY_SCROLL_LIMIT}
 					{...(onLinkOpen ? { onLinkOpen } : {})}
 				/>

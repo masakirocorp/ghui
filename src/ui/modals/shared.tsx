@@ -184,13 +184,11 @@ export const submitReviewOptions: readonly SubmitReviewOption[] = [
 	{ event: "REQUEST_CHANGES", title: "Request changes", description: "Block merge until follow-up changes are made" },
 ]
 
-const submitReviewEventColors = {
-	COMMENT: colors.status.review,
-	APPROVE: colors.status.passing,
-	REQUEST_CHANGES: colors.status.failing,
-} satisfies Record<PullRequestReviewEvent, string>
-
-export const submitReviewEventColor = (event: PullRequestReviewEvent): string => submitReviewEventColors[event]
+export const submitReviewEventColor = (event: PullRequestReviewEvent): string => {
+	if (event === "COMMENT") return colors.status.review
+	if (event === "APPROVE") return colors.status.passing
+	return colors.status.failing
+}
 
 export const mergeUnavailableReason = (info: PullRequestMergeInfo | null): string => {
 	if (!info) return "Loading merge status from GitHub."
@@ -213,12 +211,12 @@ export const MethodStripLine = ({ allowed, selected }: { allowed: RepositoryMerg
 	return <TokenLine tokens={tokens} separator="" />
 }
 
-const CHECK_STATUS_FG = {
-	failing: colors.status.failing,
-	pending: colors.status.pending,
-	passing: colors.status.passing,
-	none: colors.muted,
-} as const satisfies Record<PullRequestMergeInfo["checkStatus"], string>
+const checkStatusColor = (status: PullRequestMergeInfo["checkStatus"]): string => {
+	if (status === "failing") return colors.status.failing
+	if (status === "pending") return colors.status.pending
+	if (status === "passing") return colors.status.passing
+	return colors.muted
+}
 
 export const buildStatusBadges = (info: PullRequestMergeInfo | null, repo: string | null): readonly Token[] => {
 	if (info) {
@@ -228,7 +226,7 @@ export const buildStatusBadges = (info: PullRequestMergeInfo | null, repo: strin
 		if (info.reviewStatus === "changes") tokens.push({ text: "changes requested", fg: colors.status.changes })
 		if (info.reviewStatus === "review") tokens.push({ text: "review pending", fg: colors.status.review })
 		if (info.reviewStatus === "approved" && !info.isDraft) tokens.push({ text: "approved", fg: colors.status.approved })
-		if (info.checkStatus !== "none") tokens.push({ text: `checks ${info.checkSummary ?? info.checkStatus}`, fg: CHECK_STATUS_FG[info.checkStatus] })
+		if (info.checkStatus !== "none") tokens.push({ text: `checks ${info.checkSummary ?? info.checkStatus}`, fg: checkStatusColor(info.checkStatus) })
 		return tokens
 	}
 	return repo ? [{ text: shortRepoName(repo), fg: colors.muted }] : []

@@ -128,6 +128,7 @@ export const WorkspaceContent = (props: WorkspaceContentProps) => {
 				detailScrollRef={props.scrollRefs.detailScrollRef}
 				detailPreviewScrollRef={props.scrollRefs.detailPreviewScrollRef}
 				detailFullView={detailFullView}
+				systemThemeGeneration={props.systemThemeGeneration}
 				onLinkOpen={props.openInlineLink}
 			/>
 		)

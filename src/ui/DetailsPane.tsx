@@ -346,12 +346,12 @@ const deduplicateChecks = (checks: readonly CheckItem[]): CheckItem[] => {
 
 type CheckKind = "passing" | "failing" | "in-progress" | "queued" | "missing"
 
-const CHECK_DISPLAY: Record<CheckKind, { icon: string; color: string }> = {
-	passing: { icon: "✓", color: colors.status.passing },
-	failing: { icon: "✗", color: colors.status.failing },
-	"in-progress": { icon: "●", color: colors.status.pending },
-	queued: { icon: "○", color: colors.muted },
-	missing: { icon: "·", color: colors.muted },
+const CHECK_DISPLAY: Record<CheckKind, { icon: string; color: () => string }> = {
+	passing: { icon: "✓", color: () => colors.status.passing },
+	failing: { icon: "✗", color: () => colors.status.failing },
+	"in-progress": { icon: "●", color: () => colors.status.pending },
+	queued: { icon: "○", color: () => colors.muted },
+	missing: { icon: "·", color: () => colors.muted },
 }
 
 const checkKind = (check: CheckItem): CheckKind => {
@@ -366,7 +366,7 @@ const checkKind = (check: CheckItem): CheckKind => {
 
 const checkIcon = (check: CheckItem) => CHECK_DISPLAY[checkKind(check)].icon
 
-const checkColor = (check: CheckItem) => CHECK_DISPLAY[checkKind(check)].color
+const checkColor = (check: CheckItem) => CHECK_DISPLAY[checkKind(check)].color()
 
 const ChecksSection = ({ checks, contentWidth }: { checks: readonly CheckItem[]; contentWidth: number }) => {
 	const unique = deduplicateChecks(checks)
