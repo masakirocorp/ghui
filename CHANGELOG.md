@@ -1,5 +1,11 @@
 # @kitlangton/ghui
 
+## 0.10.0-masakiro.3
+
+### Patch Changes
+
+- Apply terminal System theme colors before the first render and keep the pre-load fallback readable.
+
 ## 0.10.0-masakiro.2
 
 ### Patch Changes
