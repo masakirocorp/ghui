@@ -77,6 +77,8 @@ export const loadStoredDiffWhitespaceMode: Effect.Effect<DiffWhitespaceMode> = E
 
 export const loadStoredSystemThemeAutoReload: Effect.Effect<boolean> = Effect.catchCause(
 	Effect.tryPromise(async () => {
+		const override = getLaunchOptions().systemThemeAutoReload
+		if (override !== null) return override
 		const config = await readStoredConfig()
 		return typeof config.systemThemeAutoReload === "boolean" ? config.systemThemeAutoReload : false
 	}),

@@ -223,6 +223,26 @@ describe("createSystemThemeReloader", () => {
 		expect(skip?.kind === "skipped" && skip.reason).toBe("unchanged")
 	})
 
+	test("launch-scoped enablement applies a changed palette and ignores its unchanged signature", async () => {
+		const h = setupHarness({ initialReads: [A, B], defaultRead: B, enabled: true })
+		await h.reloader.primeBaseline()
+
+		h.reloader.requestReload()
+		await h.clock.advance(200)
+		await h.clock.flush()
+
+		h.reloader.requestReload()
+		await h.clock.advance(200)
+		for (let i = 0; i < 5; i++) {
+			await h.clock.advance(200)
+			await h.clock.flush()
+		}
+
+		expect(h.applied).toEqual([A, B])
+		expect(h.notifyCount.value).toBe(1)
+		expect(h.events.some((event) => event.kind === "skipped" && event.reason === "unchanged")).toBe(true)
+	})
+
 	test("does not apply when terminal returns incomplete palette on every attempt", async () => {
 		const h = setupHarness({ defaultRead: PARTIAL })
 
