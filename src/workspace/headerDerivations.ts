@@ -1,5 +1,5 @@
 import { fitCell } from "../ui/primitives.js"
-
+import type { GitHubOrganization } from "../launchOptions.js"
 export interface HeaderDerivations {
 	readonly headerRight: string
 	readonly headerLeftWidth: number
@@ -21,12 +21,13 @@ export const computeHeaderDerivations = (input: {
 	readonly notice: string | null
 	readonly headerFooterWidth: number
 	readonly selectedRepository: string | null
+	readonly organization?: GitHubOrganization | null
 }): HeaderDerivations => {
-	const { username, notice, headerFooterWidth, selectedRepository } = input
+	const { username, notice, headerFooterWidth, selectedRepository, organization = null } = input
 	const headerRight = username ? `@${username}` : ""
 	const headerLeftWidth = Math.max(0, headerFooterWidth - headerRight.length)
 	const footerNotice = notice ? fitCell(notice, headerFooterWidth) : null
-	const homeCrumb = "HOME"
+	const homeCrumb = organization === null ? "HOME" : `HOME · ${organization}`
 	const breadcrumbSeparator = "/"
 	const breadcrumbSeparatorText = ` ${breadcrumbSeparator} `
 	const headerRepoWidth = selectedRepository ? Math.max(0, headerLeftWidth - homeCrumb.length - breadcrumbSeparatorText.length) : 0

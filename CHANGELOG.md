@@ -1,5 +1,18 @@
 # @kitlangton/ghui
 
+## 0.10.0-masakiro.1
+
+### Minor Changes
+
+- Add launch-scoped GitHub organization filtering with strict `--org` and `GHUI_ORG` validation, isolated queue caches, organization-aware HOME repositories, and a non-persistent scrollbar override.
+
+## 0.9.1
+
+### Patch Changes
+
+- 45e2279: Fix merging pull requests into branches with a merge queue: avoid requesting branch deletion, keep queued pull requests open while refreshing, and report queue requests separately from completed merges. Admin merges still explicitly bypass the queue. Block merge confirmation after lookup failures.
+- 090a4d5: Restore branch, review, and check details when copying pull request metadata, and comment counts and labels when copying issue metadata.
+
 ## 0.9.0-masakiro.1
 
 ### Patch Changes

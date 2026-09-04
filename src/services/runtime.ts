@@ -2,6 +2,7 @@ import { Layer } from "effect"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import { config } from "../config.js"
 import { detectCurrentGitHubRepository } from "../gitRemotes.js"
+import { scopeDetectedRepository } from "../launchOptions.js"
 import { Observability } from "../observability.js"
 import { BrowserOpener } from "./BrowserOpener.js"
 import { CacheService } from "./CacheService.js"
@@ -18,7 +19,10 @@ const parseOptionalPositiveInt = (value: string | undefined, fallback: number | 
 
 export const mockPrCount = parseOptionalPositiveInt(process.env.GHUI_MOCK_PR_COUNT, null)
 export const mockRepository = process.env.GHUI_MOCK_REPOSITORY?.trim() || null
-export const detectedRepository = mockPrCount === null ? detectCurrentGitHubRepository() : mockRepository
+export const detectedRepository = (() => {
+	const repository = mockPrCount === null ? detectCurrentGitHubRepository() : mockRepository
+	return scopeDetectedRepository(repository, config.organization)
+})()
 export const mockUsername = process.env.GHUI_MOCK_USERNAME?.trim() || (mockPrCount !== null ? "kitlangton" : undefined)
 
 export const mockWorkspacePreferencesPath = (() => {

@@ -26,8 +26,7 @@ const help = `ghui ${packageJson.version}
 
 Terminal UI for GitHub pull requests.
 
-Usage:
-  ghui              Start the TUI
+  ghui [--org <login>]  Start the TUI
   ghui upgrade      Upgrade ghui to the latest npm release
   ghui -v, --version
                     Print the installed version

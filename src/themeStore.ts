@@ -2,9 +2,10 @@ import { mkdir } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import { Effect, Schema } from "effect"
-import { isThemeId, type ThemeId } from "./ui/colors.js"
+import { getLaunchOptions } from "./launchOptions.js"
 import { normalizeThemeConfig, type ThemeConfig } from "./themeConfig.js"
 import { DiffWhitespaceMode } from "./ui/diff.js"
+import { isThemeId, type ThemeId } from "./ui/colors.js"
 
 interface StoredConfig {
 	readonly theme?: unknown
@@ -81,11 +82,12 @@ export const loadStoredSystemThemeAutoReload: Effect.Effect<boolean> = Effect.ca
 	}),
 	() => Effect.succeed(false),
 )
-
 export const loadStoredShowScrollbars: Effect.Effect<boolean> = Effect.catchCause(
 	Effect.tryPromise(async () => {
-		const config = await readStoredConfig()
-		return typeof config.showScrollbars === "boolean" ? config.showScrollbars : false
+		const override = getLaunchOptions().showScrollbars
+		if (override !== null) return override
+		const storedConfig = await readStoredConfig()
+		return typeof storedConfig.showScrollbars === "boolean" ? storedConfig.showScrollbars : false
 	}),
 	() => Effect.succeed(false),
 )

@@ -1,4 +1,5 @@
-// Item domain — the shape PRs and Issues share at the GitHub search seam.
+import { getLaunchOptions, type GitHubOrganization } from "./launchOptions.js"
+
 //
 // GitHub's GraphQL `search(type: ISSUE, …)` returns both pull requests and
 // issues; they are distinguished only by the `is:pr` / `is:issue` qualifier.
@@ -70,14 +71,18 @@ const modeQualifier = (mode: ItemListMode): string | null => {
 // recently updated. Throws `IllegalQueryError` for `mode: "all"` with no
 // repository — that combination means "every PR/issue on GitHub" and is never
 // intentional.
-export const searchQualifier = (input: ItemListInput): string => {
+export const searchQualifier = (input: ItemListInput, organization: GitHubOrganization | null = getLaunchOptions().organization): string => {
 	if (input.mode === "all" && input.repository === null) {
 		throw new IllegalQueryError(`mode "all" requires a repository; got null for kind=${input.kind}`)
 	}
 	const parts: string[] = [kindQualifier(input.kind)]
 	const peopleQualifier = modeQualifier(input.mode)
 	if (peopleQualifier !== null) parts.push(peopleQualifier)
-	if (input.repository !== null) parts.push(`repo:${input.repository}`)
+	if (input.repository !== null) {
+		parts.push(`repo:${input.repository}`)
+	} else if (organization !== null) {
+		parts.push(`org:${organization}`)
+	}
 	parts.push("is:open", "archived:false", "sort:updated-desc")
 	return parts.join(" ")
 }
@@ -101,12 +106,16 @@ export type ItemQuery = PullRequestQuery | IssueQuery
 // Stable identifier for a query's *server-visible* shape. Two queries that
 // differ only in `textFilter` share a cache key on purpose — typing in the
 // filter input must not evict loaded pages.
-export const itemQueryCacheKey = (kind: ItemKind, query: ItemQuery): string => {
+export const itemQueryCacheKey = (kind: ItemKind, query: ItemQuery, organization: GitHubOrganization | null = getLaunchOptions().organization): string => {
 	const repo = query.repository ?? "_"
-	return `${kind}:${query.mode}:${repo}`
+	const base = `${kind}:${query.mode}:${repo}`
+	return organization === null ? base : `${base}:org:${organization}`
 }
 
-export const itemQueryCacheKeyHasRepository = (key: string): boolean => key.split(":").at(-1) !== "_"
+export const itemQueryCacheKeyHasRepository = (key: string): boolean => {
+	const parts = key.split(":")
+	return parts[2] !== "_"
+}
 
 export const pullRequestQueryToListInput = (query: PullRequestQuery, cursor: string | null, pageSize: number): ItemListInput<"pullRequest"> => ({
 	kind: "pullRequest",

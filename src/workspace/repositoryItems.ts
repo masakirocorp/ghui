@@ -1,6 +1,7 @@
 import type { IssueItem, PullRequestItem } from "../domain.js"
-import type { RepositoryListItem } from "../ui/RepoList.js"
+import { repositoryBelongsToOrganization, type GitHubOrganization } from "../launchOptions.js"
 import type { RepoRollupRow } from "../services/CacheService.js"
+import type { RepositoryListItem } from "../ui/RepoList.js"
 
 export interface CatalogEntry {
 	readonly repository: string
@@ -13,6 +14,7 @@ export interface BuildRepositoryItemsInput {
 	readonly detectedRepository: string | null
 	readonly repoRollup: readonly RepoRollupRow[]
 	readonly pullRequests: readonly PullRequestItem[]
+	readonly organization: GitHubOrganization | null
 	readonly allIssues: readonly IssueItem[]
 	readonly mockRepositoryCatalog: readonly CatalogEntry[]
 }
@@ -31,11 +33,12 @@ export const buildRepositoryItems = ({
 	detectedRepository,
 	repoRollup,
 	pullRequests,
+	organization,
 	allIssues,
 	mockRepositoryCatalog,
 }: BuildRepositoryItemsInput): readonly RepositoryListItem[] => {
 	const byRepository = new Map<string, RepositoryListItem>()
-	const catalog = new Map(mockRepositoryCatalog.map((item) => [item.repository, item]))
+	const catalog = new Map(mockRepositoryCatalog.filter((item) => repositoryBelongsToOrganization(item.repository, organization)).map((item) => [item.repository, item]))
 	const ensure = (repository: string): RepositoryListItem => {
 		const existing = byRepository.get(repository)
 		if (existing) return existing
@@ -54,9 +57,10 @@ export const buildRepositoryItems = ({
 		return item
 	}
 	for (const repository of [...recentRepositories, ...Object.keys(favoriteRepositories), ...(detectedRepository ? [detectedRepository] : [])]) {
-		ensure(repository)
+		if (repositoryBelongsToOrganization(repository, organization)) ensure(repository)
 	}
 	for (const row of repoRollup) {
+		if (!repositoryBelongsToOrganization(row.repository, organization)) continue
 		const item = ensure(row.repository)
 		byRepository.set(row.repository, {
 			...item,
@@ -67,6 +71,7 @@ export const buildRepositoryItems = ({
 	}
 	const liveCounts = new Map<string, { pullRequestCount: number; issueCount: number; lastActivityAt: Date | null }>()
 	const bumpLive = (repository: string, at: Date, key: "pullRequestCount" | "issueCount") => {
+		if (!repositoryBelongsToOrganization(repository, organization)) return
 		const entry = liveCounts.get(repository) ?? { pullRequestCount: 0, issueCount: 0, lastActivityAt: null }
 		entry[key] = entry[key] + 1
 		if (!entry.lastActivityAt || entry.lastActivityAt < at) entry.lastActivityAt = at

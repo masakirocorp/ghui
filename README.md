@@ -1,38 +1,32 @@
 # ghui
 
+Masakiro-maintained fork of [`kitlangton/ghui`](https://github.com/kitlangton/ghui),
+used by Gardn as its terminal GitHub workspace. It retains the upstream ghui
+product and Kit Langton's original credit while adding launch-scoped controls
+for organization filtering and terminal presentation.
+
 Terminal UI for keeping up with your open GitHub pull requests across repositories.
 
 `ghui` gives you one keyboard-driven place to review PR details, inspect diffs, leave diff comments, manage labels, toggle draft state, merge, open PRs in GitHub, and copy PR metadata without leaving the terminal.
 
 <img width="1420" height="856" alt="image" src="https://github.com/user-attachments/assets/5e560a4a-5887-4baa-a6d4-e1f4f0410c70" />
 
-## Install
-Oh My Herdr uses the Masakiro companion build published at
-[`masakirocorp/ghui`](https://github.com/masakirocorp/ghui/releases). It adds
-the launch-scoped theme contract used by Oh My Herdr without changing your
-saved ghui preferences.
-
-Upstream ghui can be installed through Homebrew or npm:
-
-Homebrew installs a standalone `ghui` binary, so you do not need Bun or npm at runtime.
+Install the Masakiro companion release through Homebrew:
 
 ```bash
-brew install kitlangton/tap/ghui
+brew install masakirocorp/tap/ghui
 ```
 
-Upgrade with:
+Homebrew installs a standalone `ghui` binary, so you do not need Bun or npm at
+runtime. Upgrade it with:
 
 ```bash
-brew upgrade ghui
+brew upgrade masakirocorp/tap/ghui
 ```
 
-Or install with npm:
-
-```bash
-npm install -g @kitlangton/ghui
-```
-
-The npm package also installs a platform-specific binary package and does not require Bun.
+Release archives and checksums are also available from the
+[`masakirocorp/ghui` releases](https://github.com/masakirocorp/ghui/releases).
+Each archive includes the upstream MIT license.
 
 Requirements:
 
@@ -49,11 +43,15 @@ ghui
 Clone, install, and link:
 
 ```bash
-git clone https://github.com/kitlangton/ghui.git
+git clone https://github.com/masakirocorp/ghui.git
 cd ghui
 bun install
 bun link
 ```
+
+The `main` branch is the Masakiro product branch. Maintainers sync
+`kitlangton/ghui` through explicit upstream merges and preserve Masakiro launch
+contracts when resolving differences.
 
 With Nix flakes:
 
@@ -68,18 +66,29 @@ bun run dev
 - `GHUI_PR_FETCH_LIMIT`: max PRs fetched, defaults to `200`
 - `GHUI_RUN_FETCH_LIMIT`: max workflow runs fetched per PR, defaults to `20`
 - `GHUI_THEME`: launch-only fixed theme override, such as `system`; invalid theme IDs are ignored
+- `GHUI_ORG`: launch-only GitHub organization scope
+- `GHUI_SHOW_SCROLLBARS`: launch-only scrollbar override, set to `true` to show scrollbar rails
+
+Pass `--org <login>` to scope the launch to an organization. The CLI option
+overrides `GHUI_ORG`; organization logins must be 1-39 ASCII letters, digits,
+or single hyphens. Invalid CLI and environment values fail before the TUI
+starts. The organization scope filters HOME queues and repositories. Explicit
+repository views remain unchanged, and the scope is never written to config.
+
+`GHUI_SHOW_SCROLLBARS=true` takes precedence over the saved `showScrollbars`
+setting for that launch only. It does not rewrite `config.json`.
 
 Example:
 
 ```bash
-GHUI_PR_FETCH_LIMIT=100 ghui
+GHUI_ORG=kitlangton ghui
+ghui --org kitlangton
+GHUI_SHOW_SCROLLBARS=true ghui --org kitlangton
 ```
 
-Oh My Herdr launches ghui with `GHUI_THEME=system`, then provides the active
-Oh My Herdr foreground, background, cursor, and ANSI colors through the
-terminal protocol. The override applies only to that process and does not
-rewrite `config.json`.
-
+Gardn may launch ghui with `GHUI_THEME=system` and its terminal color
+protocol. Theme and organization overrides apply only to that process and do
+not rewrite `config.json`.
 You can also copy `.env.example` to `.env` and edit the values locally.
 
 ghui stores UI preferences in `config.json` under `GHUI_CONFIG_DIR` when set,
