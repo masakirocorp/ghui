@@ -1,6 +1,7 @@
 import { Context, Effect, Layer, Schema, Stream } from "effect"
 import * as Option from "effect/Option"
 import { config } from "../config.js"
+import { launchScopeCacheKey, launchScopeIncludesRepository, launchScopeRepositories, parseGitHubRepository } from "../launchOptions.js"
 import {
 	type CreatePullRequestCommentInput,
 	type IssueItem,
@@ -65,10 +66,52 @@ import {
 	WorkflowRunListSchema,
 } from "./githubSchemas.js"
 export { isGitHubRateLimitError } from "./githubRateLimit.js"
-
 const repositoryParts = (repository: string) => {
-	const [owner, name] = repository.split("/")
+	const canonical = parseGitHubRepository(repository)
+	if (canonical === null) return null
+	const [owner, name] = canonical.split("/")
 	return owner && name ? { owner, name } : null
+}
+type ScopedCursorState = {
+	readonly repository: string
+	readonly cursor: string | null
+	readonly offset: number
+	readonly done: boolean
+}
+
+type ScopedCursor = {
+	readonly version: 1
+	readonly scope: string
+	readonly states: readonly ScopedCursorState[]
+}
+
+const encodeScopedCursor = (cursor: ScopedCursor): string => Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url")
+
+const decodeScopedCursor = (value: string, scope: string): ScopedCursor | null => {
+	try {
+		const decoded: unknown = JSON.parse(Buffer.from(value, "base64url").toString("utf8"))
+		if (typeof decoded !== "object" || decoded === null || !("version" in decoded) || !("scope" in decoded) || !("states" in decoded)) return null
+		if (decoded.version !== 1 || decoded.scope !== scope || !Array.isArray(decoded.states)) return null
+		const states: ScopedCursorState[] = []
+		for (const candidate of decoded.states) {
+			if (typeof candidate !== "object" || candidate === null || !("repository" in candidate) || !("cursor" in candidate) || !("offset" in candidate) || !("done" in candidate))
+				return null
+			if (
+				typeof candidate.repository !== "string" ||
+				(candidate.cursor !== null && typeof candidate.cursor !== "string") ||
+				typeof candidate.offset !== "number" ||
+				!Number.isInteger(candidate.offset) ||
+				candidate.offset < 0 ||
+				typeof candidate.done !== "boolean"
+			) {
+				return null
+			}
+			states.push({ repository: candidate.repository, cursor: candidate.cursor, offset: candidate.offset, done: candidate.done })
+		}
+		return { version: 1, scope, states }
+	} catch {
+		return null
+	}
 }
 
 export type GitHubError = CommandError | JsonParseError | Schema.SchemaError
@@ -91,6 +134,8 @@ export class GitHubService extends Context.Service<
 		readonly getAuthenticatedUser: () => Effect.Effect<string, GitHubError>
 		readonly getPullRequestDiff: (repository: string, number: number) => Effect.Effect<string, GitHubError>
 		readonly listWorkflowRunsForCommit: (repository: string, headSha: string) => Effect.Effect<readonly WorkflowRun[], GitHubError>
+		readonly listWorkflowRunsForRepository: (repository: string) => Effect.Effect<readonly WorkflowRun[], GitHubError>
+		readonly listScopedRepositories: () => Effect.Effect<readonly string[], GitHubError>
 		readonly getWorkflowRunDetails: (repository: string, runId: number) => Effect.Effect<WorkflowRunDetails, GitHubError>
 		readonly listPullRequestReviewComments: (repository: string, number: number) => Effect.Effect<readonly PullRequestReviewComment[], GitHubError>
 		readonly listPullRequestComments: (repository: string, number: number) => Effect.Effect<readonly PullRequestComment[], GitHubError>
@@ -145,7 +190,7 @@ export class GitHubService extends Context.Service<
 							"-f",
 							`query=${graphqlQuery}`,
 							"-F",
-							`searchQuery=${searchQualifier(input)}`,
+							`searchQuery=${searchQualifier(input, config.scope)}`,
 							"-F",
 							`first=${input.pageSize}`,
 							...(input.cursor ? ["-F", `after=${input.cursor}`] : []),
@@ -191,10 +236,120 @@ export class GitHubService extends Context.Service<
 				return itemPage(connection, parsePullRequestSummary)
 			})
 
+			type ScopedItem = { readonly repository: string; readonly number: number; readonly updatedAt: Date }
+			const listScopedItemPage = <K extends "pullRequest" | "issue", Item extends ScopedItem>(
+				input: ItemListInput<K>,
+				pageFetch: (input: ItemListInput<K>) => Effect.Effect<ItemPage<Item>, GitHubError>,
+			): Effect.Effect<ItemPage<Item>, GitHubError> =>
+				Effect.gen(function* () {
+					const repositories = launchScopeRepositories(config.scope)
+					const scopeKey = launchScopeCacheKey(config.scope)
+					const decoded = input.cursor === null ? null : decodeScopedCursor(input.cursor, scopeKey)
+					if (input.cursor !== null && decoded === null) {
+						return yield* new CommandError({ command: "gh", args: [], detail: "Invalid multi-repository pagination cursor", cause: input.cursor })
+					}
+					const cursorStates =
+						decoded?.states ??
+						repositories.map(
+							(repository): ScopedCursorState => ({
+								repository,
+								cursor: null,
+								offset: 0,
+								done: false,
+							}),
+						)
+					if (cursorStates.length !== repositories.length || cursorStates.some((state, index) => state.repository !== repositories[index])) {
+						return yield* new CommandError({ command: "gh", args: [], detail: "Multi-repository pagination cursor does not match the launch scope", cause: input.cursor })
+					}
+
+					type ActiveState = {
+						repository: string
+						pageStartCursor: string | null
+						nextCursor: string | null
+						offset: number
+						consumedInPage: number
+						remaining: Item[]
+						hasNextPage: boolean
+						done: boolean
+					}
+					const active: ActiveState[] = cursorStates.map((state) => ({
+						repository: state.repository,
+						pageStartCursor: state.cursor,
+						nextCursor: null,
+						offset: state.offset,
+						consumedInPage: state.offset,
+						remaining: [],
+						hasNextPage: !state.done,
+						done: state.done,
+					}))
+					const pageSize = Math.max(1, Math.min(100, input.pageSize))
+					const perRepositoryPageSize = 100
+					const loadPage = Effect.fn("GitHubService.loadScopedPage")(function* (state: ActiveState, cursor: string | null, offset: number) {
+						const page = yield* pageFetch({ ...input, repository: state.repository, cursor, pageSize: perRepositoryPageSize })
+						state.pageStartCursor = cursor
+						state.nextCursor = page.endCursor
+						state.offset = offset
+						state.consumedInPage = offset
+						state.remaining = page.items.slice(offset)
+						state.hasNextPage = page.hasNextPage && page.endCursor !== null
+						state.done = state.remaining.length === 0 && !state.hasNextPage
+					})
+					yield* Effect.all(
+						active.map((state) => (state.done ? Effect.void : loadPage(state, state.pageStartCursor, state.offset))),
+						{ concurrency: 8 },
+					)
+
+					const output: Item[] = []
+					while (output.length < pageSize) {
+						for (const state of active) {
+							while (state.remaining.length === 0 && !state.done) {
+								if (!state.hasNextPage || state.nextCursor === null) {
+									state.done = true
+									break
+								}
+								yield* loadPage(state, state.nextCursor, 0)
+							}
+						}
+
+						let nextState: ActiveState | null = null
+						for (const state of active) {
+							const candidate = state.remaining[0]
+							if (candidate === undefined) continue
+							const current = nextState?.remaining[0]
+							if (
+								current === undefined ||
+								candidate.updatedAt.getTime() > current.updatedAt.getTime() ||
+								(candidate.updatedAt.getTime() === current.updatedAt.getTime() &&
+									(candidate.repository.localeCompare(current.repository) < 0 || (candidate.repository === current.repository && candidate.number < current.number)))
+							) {
+								nextState = state
+							}
+						}
+						if (nextState === null) break
+						const item = nextState.remaining.shift()
+						if (item === undefined) break
+						output.push(item)
+						nextState.consumedInPage += 1
+					}
+
+					const nextCursorStates = active.map((state): ScopedCursorState => {
+						if (state.remaining.length > 0) {
+							return { repository: state.repository, cursor: state.pageStartCursor, offset: state.consumedInPage, done: false }
+						}
+						if (!state.done && state.hasNextPage && state.nextCursor !== null) {
+							return { repository: state.repository, cursor: state.nextCursor, offset: 0, done: false }
+						}
+						return { repository: state.repository, cursor: null, offset: 0, done: true }
+					})
+					const hasNextPage = nextCursorStates.some((state) => !state.done)
+					const endCursor = hasNextPage ? encodeScopedCursor({ version: 1, scope: scopeKey, states: nextCursorStates }) : null
+					return { items: output, endCursor, hasNextPage }
+				})
+
 			// One page-fetcher per kind, accepting the unified `ItemListInput`.
 			// Mode "all" with a repository uses GitHub's repository connection (faster
 			// and authoritative ordering); everything else uses the search endpoint.
-			const listPullRequestPage = Effect.fn("GitHubService.listPullRequestPage")(function* (input: ItemListInput<"pullRequest">) {
+			const listPullRequestPageSingle = Effect.fn("GitHubService.listPullRequestPageSingle")(function* (input: ItemListInput<"pullRequest">) {
 				const pageSize = Math.max(1, Math.min(100, input.pageSize))
 				if (input.mode === "all" && input.repository !== null) {
 					return yield* listRepositoryPullRequestPage({ repository: input.repository, cursor: input.cursor, pageSize })
@@ -202,9 +357,23 @@ export class GitHubService extends Context.Service<
 				return yield* listPullRequestSearchPage({ ...input, pageSize })
 			})
 
-			const listIssuePage = Effect.fn("GitHubService.listIssuePage")(function* (input: ItemListInput<"issue">) {
+			const listIssuePageSingle = Effect.fn("GitHubService.listIssuePageSingle")(function* (input: ItemListInput<"issue">) {
 				const pageSize = Math.max(1, Math.min(100, input.pageSize))
 				return yield* listIssueSearchPage({ ...input, pageSize })
+			})
+
+			const listPullRequestPage = Effect.fn("GitHubService.listPullRequestPage")(function* (input: ItemListInput<"pullRequest">) {
+				if (input.repository === null && config.scope._tag === "Repositories") {
+					return yield* listScopedItemPage<"pullRequest", PullRequestItem>(input, listPullRequestPageSingle)
+				}
+				return yield* listPullRequestPageSingle(input)
+			})
+
+			const listIssuePage = Effect.fn("GitHubService.listIssuePage")(function* (input: ItemListInput<"issue">) {
+				if (input.repository === null && config.scope._tag === "Repositories") {
+					return yield* listScopedItemPage<"issue", IssueItem>(input, listIssuePageSingle)
+				}
+				return yield* listIssuePageSingle(input)
 			})
 
 			// Drain every page for an item query into a single array, using
@@ -235,6 +404,25 @@ export class GitHubService extends Context.Service<
 			const listAllPullRequests = (input: Omit<ItemListInput<"pullRequest">, "cursor" | "pageSize">) =>
 				drainItemPages<"pullRequest", PullRequestItem>(input, listPullRequestPage, config.prFetchLimit)
 			const listAllIssues = (input: Omit<ItemListInput<"issue">, "cursor" | "pageSize">) => drainItemPages<"issue", IssueItem>(input, listIssuePage, config.prFetchLimit)
+
+			const listScopedRepositories = Effect.fn("GitHubService.listScopedRepositories")(function* () {
+				if (config.scope._tag === "Repositories") return config.scope.repositories
+				const endpoint = config.scope._tag === "Organization" ? `orgs/${config.scope.organization}/repos` : "user/repos"
+				const repositories = new Set<string>()
+				const schema = Schema.Array(Schema.Struct({ full_name: Schema.String }))
+				for (let page = 1; ; page += 1) {
+					const args = ["api", `${endpoint}?per_page=100&page=${page}&sort=full_name&direction=asc`]
+					const entries = yield* ghJson("listScopedRepositories", schema, args)
+					for (const entry of entries) {
+						const repository = parseGitHubRepository(entry.full_name)
+						if (repository === null) {
+							return yield* new CommandError({ command: "gh", args, detail: `Invalid repository returned by GitHub: ${entry.full_name}`, cause: entry.full_name })
+						}
+						if (launchScopeIncludesRepository(config.scope, repository)) repositories.add(repository)
+					}
+					if (entries.length < 100) return [...repositories]
+				}
+			})
 
 			const getPullRequestDetails = Effect.fn("GitHubService.getPullRequestDetails")(function* (repository: string, number: number) {
 				const repo = repositoryParts(repository)
@@ -304,6 +492,17 @@ export class GitHubService extends Context.Service<
 					repository,
 					"--commit",
 					headSha,
+					"--limit",
+					String(config.runFetchLimit),
+					"--json",
+					RUN_LIST_FIELDS,
+				]).pipe(Effect.map(parseWorkflowRuns))
+			const listWorkflowRunsForRepository = (repository: string) =>
+				ghJson("listWorkflowRunsForRepository", WorkflowRunListSchema, [
+					"run",
+					"list",
+					"--repo",
+					repository,
 					"--limit",
 					String(config.runFetchLimit),
 					"--json",
@@ -501,6 +700,8 @@ export class GitHubService extends Context.Service<
 				getAuthenticatedUser,
 				getPullRequestDiff,
 				listWorkflowRunsForCommit,
+				listWorkflowRunsForRepository,
+				listScopedRepositories,
 				getWorkflowRunDetails,
 				listPullRequestReviewComments,
 				listPullRequestComments,

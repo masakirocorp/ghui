@@ -21,7 +21,8 @@ const appConfig = Config.all({
 	commandTimeoutMs: Config.int("GHUI_COMMAND_TIMEOUT_MS").pipe(Config.withDefault(15_000), Config.map(positiveIntOr(15_000))),
 	runFetchLimit: Config.int("GHUI_RUN_FETCH_LIMIT").pipe(Config.withDefault(20), Config.map(positiveIntOr(20))),
 	cachePath: Config.succeed(resolveCachePath()),
-	organization: Config.succeed(launch.organization),
+	scope: Config.succeed(launch.scope),
+	workspaceName: Config.succeed(launch.workspaceName),
 	showScrollbars: Config.succeed(launch.showScrollbars),
 })
 

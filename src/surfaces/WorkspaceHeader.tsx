@@ -11,6 +11,7 @@ export interface WorkspaceHeaderProps {
 	readonly homeCrumbHovered: boolean
 	readonly setHomeCrumbHovered: (hovered: boolean) => void
 	readonly goUpWorkspaceScope: () => void
+	readonly openScopePicker: () => void
 }
 
 export const WorkspaceHeader = ({
@@ -22,10 +23,11 @@ export const WorkspaceHeader = ({
 	homeCrumbHovered,
 	setHomeCrumbHovered,
 	goUpWorkspaceScope,
+	openScopePicker,
 }: WorkspaceHeaderProps) => {
 	if (!selectedRepository) {
 		return (
-			<TextLine width={headerLeftWidth}>
+			<TextLine width={headerLeftWidth} onMouseDown={() => openScopePicker()}>
 				<span fg={colors.text} attributes={TextAttributes.BOLD}>
 					{fitCell(homeCrumb, headerLeftWidth)}
 				</span>
@@ -45,7 +47,7 @@ export const WorkspaceHeader = ({
 					{breadcrumbSeparatorText}
 				</span>
 			</TextLine>
-			<TextLine width={headerRepoWidth}>
+			<TextLine width={headerRepoWidth} onMouseDown={() => openScopePicker()}>
 				<span fg={colors.text} attributes={TextAttributes.BOLD}>
 					{headerRepoWidth > 0 ? fitCell(selectedRepository, headerRepoWidth) : ""}
 				</span>

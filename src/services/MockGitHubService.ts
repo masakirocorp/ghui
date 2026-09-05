@@ -12,9 +12,11 @@ import type {
 	ReviewStatus,
 } from "../domain.js"
 import type { ItemListInput } from "../item.js"
+import { launchScopeIncludesRepository, type LaunchScope } from "../launchOptions.js"
 import { mergeInfoFromPullRequest } from "../mergeActions.js"
 import { mockAuthor, mockBody, mockIssueTitle, mockLabels, mockPullRequestBranch, mockPullRequestTitle } from "./mockData.js"
 import { mockWorkflowRunDetails, mockWorkflowRuns } from "./mockRuns.js"
+import { CommandError } from "./CommandRunner.js"
 import { GitHubService } from "./GitHubService.js"
 import { loadMockFixtureSnapshot } from "./mockFixtures.js"
 
@@ -23,6 +25,7 @@ export interface MockOptions {
 	readonly repoCount?: number
 	readonly repository?: string | null
 	readonly repositories?: readonly string[]
+	readonly scope?: LaunchScope
 	readonly username?: string
 	readonly seed?: number
 }
@@ -87,6 +90,7 @@ export const buildMockPullRequests = (options: MockOptions): readonly PullReques
 		repoCount: options.repoCount ?? 4,
 		repository: options.repository ?? null,
 		repositories: options.repositories ?? [],
+		scope: options.scope ?? { _tag: "User" },
 		username: options.username ?? "mock-user",
 		seed: options.seed ?? 0,
 	}
@@ -99,12 +103,13 @@ const buildMockIssues = (options: MockOptions): readonly IssueItem[] => {
 		repoCount: options.repoCount ?? 4,
 		repository: options.repository ?? null,
 		repositories: options.repositories ?? [],
+		scope: options.scope ?? { _tag: "User" },
 		username: options.username ?? "mock-user",
 		seed: options.seed ?? 0,
 	}
 	return Array.from({ length: Math.max(8, Math.ceil(resolved.prCount / 3)) }, (_, index) => {
 		const repoIndex = index % resolved.repoCount
-		const repository = mockRepository(repoIndex, resolved.repository)
+		const repository = resolved.repositories[repoIndex % resolved.repositories.length] ?? mockRepository(repoIndex, resolved.repository)
 		const number = 2000 + index
 		return {
 			repository,
@@ -122,15 +127,23 @@ const buildMockIssues = (options: MockOptions): readonly IssueItem[] => {
 	})
 }
 
-const filterByView = (mode: PullRequestQueueMode, repository: string | null, source: readonly PullRequestItem[], username: string, strictUserScope: boolean) => {
-	if (mode === "repository") return repository ? source.filter((item) => item.repository === repository) : []
+const filterByView = (
+	mode: PullRequestQueueMode,
+	repository: string | null,
+	source: readonly PullRequestItem[],
+	username: string,
+	strictUserScope: boolean,
+	scope: LaunchScope,
+) => {
+	const scoped = repository === null ? source.filter((item) => launchScopeIncludesRepository(scope, item.repository)) : source
+	if (mode === "repository") return repository ? scoped.filter((item) => item.repository === repository) : []
 	if (repository) return source.filter((item) => item.repository === repository)
-	if (!strictUserScope) return source
-	const authored = source.filter((item) => item.author === username)
+	if (!strictUserScope) return scoped
+	const authored = scoped.filter((item) => item.author === username)
 	if (mode === "authored") return authored
-	if (mode === "review") return source.filter((item) => item.author !== username && item.reviewStatus === "review")
-	if (mode === "assigned") return source.filter((item) => item.author !== username && item.reviewStatus === "changes")
-	return source.filter((item) => item.author !== username).slice(0, Math.ceil(source.length / 8))
+	if (mode === "review") return scoped.filter((item) => item.author !== username && item.reviewStatus === "review")
+	if (mode === "assigned") return scoped.filter((item) => item.author !== username && item.reviewStatus === "changes")
+	return scoped.filter((item) => item.author !== username).slice(0, Math.ceil(scoped.length / 8))
 }
 
 const slicePage = <T>(source: readonly T[], cursor: string | null, pageSize: number): { items: readonly T[]; endCursor: string | null; hasNextPage: boolean } => {
@@ -170,6 +183,7 @@ export const MockGitHubService = {
 		const fixture = loadMockFixtureSnapshot()
 		const strictUserScope = fixture !== null
 		const username = options.username ?? "mock-user"
+		const scope = options.scope ?? { _tag: "User" as const }
 		const items = fixture ? fixture.pullRequests.slice(0, options.prCount) : buildMockPullRequests(options)
 		const userItems = fixture
 			? buildMockPullRequests({
@@ -177,6 +191,7 @@ export const MockGitHubService = {
 					repoCount: options.repoCount ?? 4,
 					repository: null,
 					...(options.repositories ? { repositories: options.repositories } : {}),
+					scope,
 					username,
 				})
 			: items.map((item) => ({ ...item, author: username }))
@@ -190,7 +205,7 @@ export const MockGitHubService = {
 		const queueModeForListMode = (mode: "all" | "authored" | "review" | "assigned" | "mentioned"): PullRequestQueueMode => (mode === "all" ? "repository" : mode)
 
 		const filterIssuesByMode = (mode: "all" | "authored" | "assigned" | "mentioned", repository: string | null, source: readonly IssueItem[]): readonly IssueItem[] => {
-			const scopedToRepo = repository ? source.filter((issue) => issue.repository === repository) : source
+			const scopedToRepo = repository ? source.filter((issue) => issue.repository === repository) : source.filter((issue) => launchScopeIncludesRepository(scope, issue.repository))
 			if (mode === "all") return scopedToRepo
 			if (mode === "authored") return scopedToRepo.filter((issue) => issue.author === username)
 			// Mock has no assignee/mentions metadata; treat both as "items not authored by me"
@@ -294,6 +309,20 @@ export const MockGitHubService = {
 				getAuthenticatedUser: () => Effect.succeed(username),
 				getPullRequestDiff: (repository, number) => Effect.succeed(fixturePullRequest(repository, number)?.diff ?? mockDiff),
 				listWorkflowRunsForCommit: (repository, headSha) => Effect.succeed(mockWorkflowRuns(repository, headSha)),
+				listWorkflowRunsForRepository: (repository) =>
+					Effect.succeed(
+						[...new Set([...items, ...userItems].filter((item) => item.repository === repository).map((item) => item.headRefOid))].flatMap((headSha) =>
+							mockWorkflowRuns(repository, headSha),
+						),
+					),
+				listScopedRepositories: () =>
+					Effect.succeed(
+						scope._tag === "Repositories"
+							? scope.repositories
+							: [...new Set([...items, ...userItems, ...issues].map((item) => item.repository).concat(options.repositories ?? []))].filter((repository) =>
+									launchScopeIncludesRepository(scope, repository),
+								),
+					),
 				getWorkflowRunDetails: (repository, runId) => {
 					for (const pr of [...items, ...userItems]) {
 						const details = mockWorkflowRunDetails(repository, pr.headRefOid, runId)
@@ -389,21 +418,36 @@ export const MockGitHubService = {
 				addIssueLabel: () => Effect.void,
 				removeIssueLabel: () => Effect.void,
 				listPullRequestPage: (input: ItemListInput<"pullRequest">) => {
+					if (input.mode === "all" && input.repository === null) {
+						return Effect.fail(new CommandError({ command: "gh", args: [], detail: "mode all requires a repository", cause: input }))
+					}
 					const queueMode = queueModeForListMode(input.mode)
-					const filtered = filterByView(queueMode, input.repository, pullRequestSource(queueMode, input.repository), username, strictUserScope)
+					const filtered = filterByView(queueMode, input.repository, pullRequestSource(queueMode, input.repository), username, strictUserScope, scope)
 					return Effect.succeed(slicePage(filtered, input.cursor, input.pageSize))
 				},
-				listIssuePage: (input: ItemListInput<"issue">) => Effect.succeed(slicePage(filterIssuesByMode(input.mode, input.repository, issues), input.cursor, input.pageSize)),
+				listIssuePage: (input: ItemListInput<"issue">) => {
+					if (input.mode === "all" && input.repository === null) {
+						return Effect.fail(new CommandError({ command: "gh", args: [], detail: "mode all requires a repository", cause: input }))
+					}
+					return Effect.succeed(slicePage(filterIssuesByMode(input.mode, input.repository, issues), input.cursor, input.pageSize))
+				},
 				listAllPullRequests: (input: {
 					readonly kind: "pullRequest"
 					readonly mode: "all" | "authored" | "review" | "assigned" | "mentioned"
 					readonly repository: string | null
 				}) => {
+					if (input.mode === "all" && input.repository === null) {
+						return Effect.fail(new CommandError({ command: "gh", args: [], detail: "mode all requires a repository", cause: input }))
+					}
 					const queueMode = queueModeForListMode(input.mode)
-					return Effect.succeed(filterByView(queueMode, input.repository, pullRequestSource(queueMode, input.repository), username, strictUserScope))
+					return Effect.succeed(filterByView(queueMode, input.repository, pullRequestSource(queueMode, input.repository), username, strictUserScope, scope))
 				},
-				listAllIssues: (input: { readonly kind: "issue"; readonly mode: "all" | "authored" | "assigned" | "mentioned"; readonly repository: string | null }) =>
-					Effect.succeed(filterIssuesByMode(input.mode, input.repository, issues)),
+				listAllIssues: (input: { readonly kind: "issue"; readonly mode: "all" | "authored" | "assigned" | "mentioned"; readonly repository: string | null }) => {
+					if (input.mode === "all" && input.repository === null) {
+						return Effect.fail(new CommandError({ command: "gh", args: [], detail: "mode all requires a repository", cause: input }))
+					}
+					return Effect.succeed(filterIssuesByMode(input.mode, input.repository, issues))
+				},
 			}),
 		)
 	},

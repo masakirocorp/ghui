@@ -18,6 +18,7 @@ import { pullRequestStateModalKeymap, type PullRequestStateModalCtx } from "./pu
 import { runsViewKeymap, type RunsViewCtx } from "./runsView.ts"
 import { submitReviewModalKeymap, type SubmitReviewModalCtx } from "./submitReviewModal.ts"
 import { themeModalKeymap, type ThemeModalCtx } from "./themeModal.ts"
+import { gardnAgentPickerKeymap, type GardnAgentPickerCtx } from "./gardnAgentPicker.ts"
 
 export interface AppCtx {
 	// Active flags
@@ -34,6 +35,7 @@ export interface AppCtx {
 	readonly commentModalActive: boolean
 	readonly deleteCommentModalActive: boolean
 	readonly commandPaletteActive: boolean
+	readonly gardnAgentPickerActive: boolean
 	readonly filterMode: boolean
 	readonly diffFullView: boolean
 	readonly runsFullView: boolean
@@ -58,6 +60,7 @@ export interface AppCtx {
 	readonly commentModal: CommentModalCtx
 	readonly deleteCommentModal: DeleteCommentModalCtx
 	readonly commandPalette: CommandPaletteCtx
+	readonly gardnAgentPicker: GardnAgentPickerCtx
 	readonly filterModeCtx: FilterModeCtx
 	readonly diff: DiffViewCtx
 	readonly runs: RunsViewCtx
@@ -85,7 +88,8 @@ const modalActive = (a: AppCtx): boolean =>
 	a.openRepositoryModalActive ||
 	a.commentModalActive ||
 	a.deleteCommentModalActive ||
-	a.commandPaletteActive
+	a.commandPaletteActive ||
+	a.gardnAgentPickerActive
 
 const inListMode = (a: AppCtx): boolean => !modalActive(a) && !a.filterMode && !a.diffFullView && !a.runsFullView && !a.detailFullView && !a.commentsViewActive
 
@@ -123,6 +127,7 @@ export const appKeymap = App(
 	commentModalKeymap.scope((a) => a.commentModalActive && a.commentModal),
 	deleteCommentModalKeymap.scope((a) => a.deleteCommentModalActive && a.deleteCommentModal),
 	commandPaletteKeymap.scope((a) => a.commandPaletteActive && a.commandPalette),
+	gardnAgentPickerKeymap.scope((a) => a.gardnAgentPickerActive && a.gardnAgentPicker),
 	filterModeKeymap.scope((a) => a.filterMode && a.filterModeCtx),
 
 	// Full-view layers (only when no modal is on top)

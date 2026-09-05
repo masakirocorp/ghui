@@ -8,14 +8,18 @@ export const OpenRepositoryModal = ({
 	modalHeight,
 	offsetLeft,
 	offsetTop,
+	repositories,
+	onChoose,
 }: {
 	state: OpenRepositoryModalState
 	modalWidth: number
 	modalHeight: number
 	offsetLeft: number
 	offsetTop: number
+	readonly repositories: readonly string[]
+	readonly onChoose: (repository: string | null) => void
 }) => {
-	const { contentWidth } = standardModalDims(modalWidth, modalHeight)
+	const { contentWidth, bodyHeight } = standardModalDims(modalWidth, modalHeight)
 	const inputText = state.query.length > 0 ? state.query : "owner/name or GitHub URL"
 
 	return (
@@ -24,7 +28,7 @@ export const OpenRepositoryModal = ({
 			top={offsetTop}
 			width={modalWidth}
 			height={modalHeight}
-			title="Open Repository"
+			title="Choose repository scope"
 			headerRight={{ text: "owner/name" }}
 			subtitle={
 				<TextLine>
@@ -36,7 +40,7 @@ export const OpenRepositoryModal = ({
 			footer={
 				<HintRow
 					items={[
-						{ key: "enter", label: "open" },
+						{ key: "enter", label: "open / home" },
 						{ key: "ctrl-u", label: "clear" },
 						{ key: "ctrl-w", label: "word" },
 						{ key: "esc", label: "cancel" },
@@ -44,11 +48,23 @@ export const OpenRepositoryModal = ({
 				/>
 			}
 		>
-			{state.error ? (
-				<PlainLine text={fitCell(state.error, contentWidth)} fg={colors.error} />
-			) : (
-				<PlainLine text={fitCell("Switches to the selected repository view.", contentWidth)} fg={colors.muted} />
-			)}
+			<scrollbox height={bodyHeight} focusable={false}>
+				<TextLine onMouseDown={() => onChoose(null)}>
+					<span fg={colors.accent}>HOME · launch scope</span>
+				</TextLine>
+				{repositories
+					.filter((repository) => repository.toLowerCase().includes(state.query.toLowerCase()))
+					.map((repository) => (
+						<TextLine key={repository} onMouseDown={() => onChoose(repository)}>
+							<span fg={colors.link}>{repository}</span>
+						</TextLine>
+					))}
+				{state.error ? (
+					<PlainLine text={fitCell(state.error, contentWidth)} fg={colors.error} />
+				) : (
+					<PlainLine text={fitCell("Type owner/repo to explore. Empty input returns HOME.", contentWidth)} fg={colors.muted} />
+				)}
+			</scrollbox>
 		</StandardModal>
 	)
 }

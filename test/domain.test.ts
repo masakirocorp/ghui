@@ -30,11 +30,11 @@ describe("pullRequestQueueSearchQualifier", () => {
 
 describe("viewCacheKey", () => {
 	test("repository view key uses the unified item-query cache key", () => {
-		expect(viewCacheKey({ _tag: "Repository", repository: "owner/name" })).toBe("pullRequest:all:owner/name")
+		expect(viewCacheKey({ _tag: "Repository", repository: "owner/name" })).toBe("pullRequest:all:owner/name:scope:user")
 	})
 
 	test("queue view key uses the unified item-query cache key", () => {
-		expect(viewCacheKey({ _tag: "Queue", mode: "authored", repository: null })).toBe("pullRequest:authored:_")
-		expect(viewCacheKey({ _tag: "Queue", mode: "review", repository: "owner/name" })).toBe("pullRequest:review:owner/name")
+		expect(viewCacheKey({ _tag: "Queue", mode: "authored", repository: null })).toBe("pullRequest:authored:_:scope:user")
+		expect(viewCacheKey({ _tag: "Queue", mode: "review", repository: "owner/name" })).toBe("pullRequest:review:owner/name:scope:user")
 	})
 })

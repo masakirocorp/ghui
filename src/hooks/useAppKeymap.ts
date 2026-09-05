@@ -15,6 +15,7 @@ import type { RunsViewCtx } from "../keymap/runsView.js"
 import type { WorkspaceSurface } from "../workspaceSurfaces.js"
 import { useKeymapWiring } from "./useKeymapWiring.js"
 import type { CommentEditorValue } from "../ui/commentEditor.js"
+import type { GardnAgentPickerCtx } from "../keymap/gardnAgentPicker.ts"
 
 export interface UseAppKeymapInput {
 	readonly disabled: boolean
@@ -33,6 +34,7 @@ export interface UseAppKeymapInput {
 	readonly commentModalActive: boolean
 	readonly deleteCommentModalActive: boolean
 	readonly commandPaletteActive: boolean
+	readonly gardnAgentPickerActive: boolean
 	readonly filterMode: boolean
 	readonly diffFullView: boolean
 	readonly runsFullView: boolean
@@ -90,6 +92,7 @@ export interface UseAppKeymapInput {
 
 	// Runs view (pre-built ctx; the runs feature owns its own atom logic)
 	readonly runsViewCtx: RunsViewCtx
+	readonly gardnAgentPickerCtx: GardnAgentPickerCtx
 
 	// Diff actions
 	readonly halfPage: number
@@ -121,6 +124,7 @@ export interface UseAppKeymapInput {
 	readonly visiblePullRequestsLength: number
 	readonly issuesLength: number
 	readonly repositoryItemsLength: number
+	readonly workspaceItemsLength: number
 	readonly selectedRepository: string | null
 	readonly selectedPullRequest: { readonly url: string } | null
 	readonly selectedIssue: unknown | null
@@ -131,6 +135,9 @@ export interface UseAppKeymapInput {
 	readonly loadMorePullRequests: () => boolean | Promise<void> | void
 	readonly loadMoreIssues: () => boolean | Promise<void> | void
 	readonly openSelectedRepository: () => void
+	readonly openOverviewSelection: () => void
+	readonly openActionSelection: () => void
+	readonly actionDetailActive: boolean
 	readonly openRepositoryPicker: () => void
 	readonly toggleFavoriteRepository: () => void
 	readonly removeSelectedRepository: () => void
@@ -173,6 +180,7 @@ export interface UseAppKeymapInput {
  * over a flat bundle and lets this hook produce the right shape.
  */
 export const useAppKeymap = (i: UseAppKeymapInput): void => {
+	const overviewDetailActive = i.activeWorkspaceSurface === "overview" && i.actionDetailActive
 	useKeymapWiring({
 		disabled: i.disabled,
 		ctxInput: {
@@ -190,6 +198,7 @@ export const useAppKeymap = (i: UseAppKeymapInput): void => {
 				commentModalActive: i.commentModalActive,
 				deleteCommentModalActive: i.deleteCommentModalActive,
 				commandPaletteActive: i.commandPaletteActive,
+				gardnAgentPickerActive: i.gardnAgentPickerActive,
 				filterMode: i.filterMode,
 				diffFullView: i.diffFullView,
 				runsFullView: i.runsFullView,
@@ -198,6 +207,7 @@ export const useAppKeymap = (i: UseAppKeymapInput): void => {
 				textInputActive:
 					i.commentModalActive ||
 					i.commandPaletteActive ||
+					i.gardnAgentPickerActive ||
 					i.openRepositoryModalActive ||
 					i.changedFilesModalActive ||
 					i.submitReviewModalActive ||
@@ -274,6 +284,7 @@ export const useAppKeymap = (i: UseAppKeymapInput): void => {
 				selectDiffCommentSide: i.selectDiffCommentSide,
 			},
 			runs: i.runsViewCtx,
+			gardnAgentPicker: i.gardnAgentPickerCtx,
 			detail: {
 				halfPage: i.halfPage,
 				activeSurface: i.activeWorkspaceSurface,
@@ -295,18 +306,28 @@ export const useAppKeymap = (i: UseAppKeymapInput): void => {
 			},
 			listNav: {
 				halfPage: i.halfPage,
-				visibleCount: i.activeWorkspaceSurface === "repos" ? i.repositoryItemsLength : i.activeWorkspaceSurface === "pullRequests" ? i.visiblePullRequestsLength : i.issuesLength,
-				hasFilter: i.filterQuery.length > 0,
+				visibleCount:
+					i.activeWorkspaceSurface === "overview" || i.activeWorkspaceSurface === "actions"
+						? i.workspaceItemsLength
+						: i.activeWorkspaceSurface === "repos"
+							? i.repositoryItemsLength
+							: i.activeWorkspaceSurface === "pullRequests"
+								? i.visiblePullRequestsLength
+								: i.issuesLength,
+				hasFilter: !i.actionDetailActive && i.filterQuery.length > 0,
 				activeSurface: i.activeWorkspaceSurface,
 				surfaces: i.workspaceTabSurfaces,
-				canGoUpWorkspace: i.selectedRepository !== null,
+				canGoUpWorkspace: i.selectedRepository !== null || i.actionDetailActive,
 				canScrollDetailPreview:
+					overviewDetailActive ||
 					(i.activeWorkspaceSurface === "pullRequests" && i.selectedPullRequest !== null) ||
 					(i.activeWorkspaceSurface === "issues" && i.selectedIssue !== null) ||
 					(i.activeWorkspaceSurface === "repos" && !i.isWideLayout && i.selectedRepositoryItem !== null),
 				runCommandById: i.runCommandById,
 				openSelection: () => {
 					if (i.activeWorkspaceSurface === "repos") i.openSelectedRepository()
+					else if (i.activeWorkspaceSurface === "overview") i.openOverviewSelection()
+					else if (i.activeWorkspaceSurface === "actions") i.openActionSelection()
 					else if (i.activeWorkspaceSurface === "pullRequests" && i.loadMoreRowSelected) i.loadMorePullRequests()
 					else if (i.activeWorkspaceSurface === "issues" && i.loadMoreIssueRowSelected) i.loadMoreIssues()
 					else i.runCommandById("detail.open")
@@ -321,21 +342,21 @@ export const useAppKeymap = (i: UseAppKeymapInput): void => {
 				switchQueueMode: i.switchQueueMode,
 				switchWorkspaceSurface: i.switchWorkspaceSurface,
 				cycleWorkspaceSurface: i.cycleWorkspaceSurface,
-				scrollDetailPreviewBy: i.scrollDetailPreviewBy,
-				scrollDetailPreviewTo: i.scrollDetailPreviewTo,
-				stepSelected: i.stepSelected,
-				stepSelectedUp: i.stepSelectedUp,
-				stepSelectedDown: i.stepSelectedDown,
-				stepSelectedUpWrap: i.stepSelectedUpWrap,
-				stepSelectedDownWithLoadMore: i.stepSelectedDownWithLoadMore,
+				scrollDetailPreviewBy: overviewDetailActive ? i.scrollDetailFullViewBy : i.scrollDetailPreviewBy,
+				scrollDetailPreviewTo: overviewDetailActive ? i.scrollDetailFullViewTo : i.scrollDetailPreviewTo,
+				stepSelected: overviewDetailActive ? i.scrollDetailFullViewBy : i.stepSelected,
+				stepSelectedUp: overviewDetailActive ? (count = 1) => i.scrollDetailFullViewBy(-count) : i.stepSelectedUp,
+				stepSelectedDown: overviewDetailActive ? (count = 1) => i.scrollDetailFullViewBy(count) : i.stepSelectedDown,
+				stepSelectedUpWrap: overviewDetailActive ? () => i.scrollDetailFullViewBy(-1) : i.stepSelectedUpWrap,
+				stepSelectedDownWithLoadMore: overviewDetailActive ? () => i.scrollDetailFullViewBy(1) : i.stepSelectedDownWithLoadMore,
 				moveSelectedToPreviousGroup: i.moveSelectedToPreviousGroup,
 				moveSelectedToNextGroup: i.moveSelectedToNextGroup,
-				setSelected: (index) =>
-					i.activeWorkspaceSurface === "repos"
-						? i.setSelectedRepositoryIndex(index)
-						: i.activeWorkspaceSurface === "issues"
-							? i.setSelectedIssueIndex(index)
-							: i.setSelectedIndex(index),
+				setSelected: (index) => {
+					if (overviewDetailActive) i.scrollDetailFullViewTo(index === 0 ? 0 : Number.MAX_SAFE_INTEGER)
+					else if (i.activeWorkspaceSurface === "repos") i.setSelectedRepositoryIndex(index)
+					else if (i.activeWorkspaceSurface === "issues") i.setSelectedIssueIndex(index)
+					else i.setSelectedIndex(index)
+				},
 			},
 			openCommandPalette: () => i.runCommandById("command.open"),
 			handleQuitOrClose: i.handleQuitOrClose,

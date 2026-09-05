@@ -4,8 +4,11 @@ import { githubRuntime, initialRecentRepositories } from "../services/runtime.js
 import type { ViewerId, WorkspacePreferences } from "../workspacePreferences.js"
 import { repositoryWorkspaceSurfaces, userWorkspaceSurfaces, type WorkspaceSurface } from "../workspaceSurfaces.js"
 import { userWorkspaceScope, workspaceScopeRepository, type WorkspaceScope } from "../workspaceScope.js"
+import { getLaunchOptions } from "../launchOptions.js"
 
-export const workspaceSurfaceAtom = Atom.make<WorkspaceSurface>("pullRequests")
+const hasContextualLaunch = getLaunchOptions().workspaceName !== null || getLaunchOptions().scope._tag !== "User"
+export const initialWorkspaceSurface: WorkspaceSurface = hasContextualLaunch ? "overview" : "pullRequests"
+export const workspaceSurfaceAtom = Atom.make<WorkspaceSurface>(initialWorkspaceSurface)
 export const workspaceScopeAtom = Atom.make<WorkspaceScope>(userWorkspaceScope).pipe(Atom.keepAlive)
 export const selectedRepositoryAtom = Atom.make((get) => workspaceScopeRepository(get(workspaceScopeAtom)))
 export const selectedRepositoryIndexAtom = Atom.make(0)

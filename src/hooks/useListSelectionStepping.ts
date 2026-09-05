@@ -7,6 +7,7 @@ export interface UseListSelectionSteppingInput {
 	readonly visiblePullRequests: readonly PullRequestItem[]
 	readonly issues: readonly IssueItem[]
 	readonly repositoryItems: readonly RepositoryListItem[]
+	readonly workspaceItemsLength: number
 	readonly loadMoreSlotAvailable: boolean
 	readonly issueLoadMoreSlotAvailable: boolean
 	readonly groupStarts: readonly number[]
@@ -44,6 +45,7 @@ export const useListSelectionStepping = ({
 	visiblePullRequests,
 	issues,
 	repositoryItems,
+	workspaceItemsLength,
 	loadMoreSlotAvailable,
 	issueLoadMoreSlotAvailable,
 	groupStarts,
@@ -54,6 +56,7 @@ export const useListSelectionStepping = ({
 }: UseListSelectionSteppingInput): ListSelectionStepping => {
 	const prMaxIndex = () => Math.max(0, visiblePullRequests.length - 1 + (loadMoreSlotAvailable ? 1 : 0))
 	const issueMaxIndex = () => Math.max(0, issues.length - 1 + (issueLoadMoreSlotAvailable ? 1 : 0))
+	const workspaceMaxIndex = () => Math.max(0, workspaceItemsLength - 1)
 	const moveSelectedToPreviousGroup = () =>
 		setSelectedIndex((current) => {
 			if (activeWorkspaceSurface !== "pullRequests") return current
@@ -81,10 +84,15 @@ export const useListSelectionStepping = ({
 						if (issues.length === 0) return 0
 						return Math.max(0, Math.min(issueMaxIndex(), current + delta))
 					})
-				: setSelectedIndex((current) => {
-						if (visiblePullRequests.length === 0) return 0
-						return Math.max(0, Math.min(prMaxIndex(), current + delta))
-					})
+				: activeWorkspaceSurface === "overview" || activeWorkspaceSurface === "actions"
+					? setSelectedIndex((current) => {
+							if (workspaceItemsLength === 0) return 0
+							return Math.max(0, Math.min(workspaceMaxIndex(), current + delta))
+						})
+					: setSelectedIndex((current) => {
+							if (visiblePullRequests.length === 0) return 0
+							return Math.max(0, Math.min(prMaxIndex(), current + delta))
+						})
 	const stepSelectedDown = (count = 1) => stepSelected(count)
 	const stepSelectedUp = (count = 1) => stepSelected(-count)
 	const stepSelectedDownWithLoadMore = () => {
@@ -103,6 +111,14 @@ export const useListSelectionStepping = ({
 			})
 			return
 		}
+		if (activeWorkspaceSurface === "overview" || activeWorkspaceSurface === "actions") {
+			setSelectedIndex((current) => {
+				if (workspaceItemsLength === 0) return 0
+				const max = workspaceMaxIndex()
+				return current >= max ? 0 : current + 1
+			})
+			return
+		}
 		setSelectedIndex((current) => {
 			if (visiblePullRequests.length === 0) return 0
 			const max = prMaxIndex()
@@ -114,7 +130,9 @@ export const useListSelectionStepping = ({
 			? setSelectedRepositoryIndex((current) => Math.max(0, current - 1))
 			: activeWorkspaceSurface === "issues"
 				? setSelectedIssueIndex((current) => Math.max(0, current - 1))
-				: setSelectedIndex((current) => Math.max(0, current - 1))
+				: activeWorkspaceSurface === "overview" || activeWorkspaceSurface === "actions"
+					? setSelectedIndex((current) => Math.max(0, current - 1))
+					: setSelectedIndex((current) => Math.max(0, current - 1))
 
 	return { stepSelected, stepSelectedDown, stepSelectedUp, stepSelectedDownWithLoadMore, stepSelectedUpWrap, moveSelectedToPreviousGroup, moveSelectedToNextGroup }
 }

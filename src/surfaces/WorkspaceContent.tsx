@@ -15,10 +15,19 @@ import { IssueSurface } from "./IssueSurface.js"
 import { PullRequestSurface } from "./PullRequestSurface.js"
 import type { RunsViewModel } from "../hooks/useRunsView.js"
 import { RepoSurface } from "./RepoSurface.js"
+import { OverviewSurface } from "./OverviewSurface.js"
+import type { OverviewRow } from "./overviewRows.js"
+import { ActionsSurface } from "./ActionsSurface.js"
 
 export interface WorkspaceContentProps {
 	readonly showScrollbars: boolean
 	readonly activeWorkspaceSurface: WorkspaceSurface
+	readonly workspaceSelectedIndex: number
+	readonly setWorkspaceSelectedIndex: (index: number) => void
+	readonly openOverviewRow: (row: OverviewRow) => void
+	readonly overviewDetail: OverviewRow | null
+	readonly closeOverviewDetail: () => void
+	readonly openBrowser: (url: string) => void
 	readonly commentsViewActive: boolean
 	readonly diffFullView: boolean
 	readonly runsView: RunsViewModel
@@ -81,6 +90,32 @@ export interface DiffFilePanelBundle {
 
 export const WorkspaceContent = (props: WorkspaceContentProps) => {
 	const { activeWorkspaceSurface, commentsViewActive, diffFullView, detailFullView, layout, derivations } = props
+	if (activeWorkspaceSurface === "overview" && !commentsViewActive && !diffFullView && !detailFullView) {
+		return (
+			<OverviewSurface
+				width={layout.fullscreenContentWidth}
+				height={layout.fullscreenBodyLines}
+				selectedIndex={props.workspaceSelectedIndex}
+				onSelect={props.setWorkspaceSelectedIndex}
+				onActivate={props.openOverviewRow}
+				detail={props.overviewDetail}
+				onBack={props.closeOverviewDetail}
+				openBrowser={props.openBrowser}
+				detailScrollRef={props.scrollRefs.detailScrollRef}
+			/>
+		)
+	}
+	if (activeWorkspaceSurface === "actions" && !commentsViewActive && !diffFullView && !detailFullView) {
+		return (
+			<ActionsSurface
+				width={layout.fullscreenContentWidth}
+				height={layout.fullscreenBodyLines}
+				selectedIndex={props.workspaceSelectedIndex}
+				onSelect={props.setWorkspaceSelectedIndex}
+				openBrowser={props.openBrowser}
+			/>
+		)
+	}
 	if (activeWorkspaceSurface === "repos" && !commentsViewActive && !diffFullView && !detailFullView) {
 		return (
 			<RepoSurface

@@ -10,6 +10,8 @@ import { commentsViewActiveAtom, selectedCommentKeyAtom } from "../ui/comments/a
 import { detailFullViewAtom, detailScrollOffsetAtom } from "../ui/detail/atoms.js"
 import { diffCommentRangeStartIndexAtom, diffFullViewAtom, diffRenderViewAtom, diffWhitespaceModeAtom, diffWrapModeAtom } from "../ui/diff/atoms.js"
 import { pullRequestRunsFor, runDetailSelectionAtom, runsFullViewAtom, runsKey, runsListSelectionAtom, selectedRunIdAtom } from "../ui/runs/atoms.js"
+import { actionRunDetailsFor, actionsAtom, actionsFilterAtom } from "../ui/actions/atoms.js"
+import { overviewAtom } from "../ui/overview/atoms.js"
 import { filterDraftAtom, filterModeAtom, filterQueryAtom } from "../ui/filter/atoms.js"
 import { selectedIssueAtom } from "../ui/issues/atoms.js"
 import { activeModalAtom } from "../ui/modals/atoms.js"
@@ -21,6 +23,8 @@ import { pullRequestQueueModes } from "../domain.js"
 import { issueMetadataText, pullRequestMetadataText } from "../ui/pullRequests.js"
 import { labelCacheAtom, selectedPullRequestAtom } from "../ui/pullRequests/atoms.js"
 import { selectedRepositoryAtom, workspaceSurfaceAtom, workspaceTabSurfacesAtom } from "../workspace/atoms.js"
+import { selectedActionRunAtom } from "../ui/actions/atoms.js"
+import { GardnHandoff } from "../services/GardnHandoff.js"
 import { type WorkspaceSurface, workspaceSurfaceLabels, workspaceSurfaces } from "../workspaceSurfaces.js"
 import {
 	changedFilesReasonAtom,
@@ -45,6 +49,10 @@ import {
 	noOpenPullRequestReasonAtom,
 	noPullRequestReasonAtom,
 	noSelectedItemReasonAtom,
+	noContextRepositoryReasonAtom,
+	selectedContextRepositoryAtom,
+	contextPullRequestAtom,
+	noContextPullRequestReasonAtom,
 	ownCommentReasonAtom,
 	pullRequestRefreshTitleAtom,
 	pullRequestSurfaceReasonAtom,
@@ -109,6 +117,80 @@ const workspaceSurfaceCommands = workspaceSurfaces.map((surface, index): Command
 	})
 })
 
+const actionsFilterCommands: readonly CommandDefinition[] = [
+	defineCommand({
+		id: "overview.refresh",
+		title: "Refresh overview",
+		scope: "View",
+		keywords: ["overview", "reload", "sync"],
+		run: Atom.refresh(overviewAtom),
+	}),
+	defineCommand({
+		id: "actions.refresh",
+		title: "Refresh workflow runs",
+		scope: "View",
+		keywords: ["actions", "reload", "sync"],
+		run: Effect.gen(function* () {
+			yield* Atom.refresh(actionsAtom)
+			const selected = yield* Atom.get(selectedActionRunAtom)
+			if (selected !== null) yield* Atom.refresh(actionRunDetailsFor(`${selected.repository}\u0000${selected.run.id}`))
+		}),
+	}),
+	defineCommand({
+		id: "actions.filter.all",
+		title: "Show all workflow runs",
+		scope: "View",
+		keywords: ["actions", "workflow", "runs", "all"],
+		run: Atom.set(actionsFilterAtom, "all"),
+	}),
+	defineCommand({
+		id: "actions.filter.failed",
+		title: "Show failed workflow runs",
+		scope: "View",
+		keywords: ["actions", "workflow", "runs", "failed"],
+		run: Atom.set(actionsFilterAtom, "failed"),
+	}),
+	defineCommand({
+		id: "actions.filter.running",
+		title: "Show running workflow runs",
+		scope: "View",
+		keywords: ["actions", "workflow", "runs", "running"],
+		run: Atom.set(actionsFilterAtom, "running"),
+	}),
+]
+
+const gardnCommands: readonly CommandDefinition[] = [
+	defineCommand({
+		id: "gardn.open-checkout",
+		title: "Open checkout in Gardn",
+		scope: "View",
+		keywords: ["gardn", "checkout", "repository", "space"],
+		disabledReason: noContextRepositoryReasonAtom,
+		run: Effect.gen(function* () {
+			const repository = yield* Atom.get(selectedContextRepositoryAtom)
+			if (repository) yield* GardnHandoff.use((gardn) => gardn.openCheckout(repository))
+		}),
+	}),
+	defineCommand({
+		id: "gardn.create-review-space",
+		title: "Create review Space in Gardn",
+		scope: "Pull request",
+		keywords: ["gardn", "review", "space", "checkout", "worktree"],
+		disabledReason: noContextPullRequestReasonAtom,
+		run: Effect.gen(function* () {
+			const pullRequest = yield* Atom.get(contextPullRequestAtom)
+			if (pullRequest) yield* GardnHandoff.use((gardn) => gardn.createReviewSpace(pullRequest))
+		}),
+	}),
+	defineCommand({
+		id: "gardn.send-to-agent",
+		title: "Send selected context to Gardn agent",
+		scope: "View",
+		keywords: ["gardn", "agent", "handoff", "send", "context"],
+		run: Effect.sync(() => invokeHandoff("openGardnAgentPicker")),
+	}),
+]
+
 function switchWorkspaceSurfaceEffect(surface: WorkspaceSurface) {
 	return Effect.gen(function* () {
 		const allowed = yield* Atom.get(workspaceTabSurfacesAtom)
@@ -171,6 +253,8 @@ export const globalCommands: readonly CommandDefinition[] = [
 
 	// === Workspace surface switches ===
 	...workspaceSurfaceCommands,
+	...actionsFilterCommands,
+	...gardnCommands,
 
 	// === Detail / diff toggles ===
 	defineCommand({

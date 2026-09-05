@@ -9,7 +9,7 @@ import { buildRepositoryItems, type CatalogEntry } from "../../workspace/reposit
 import { favoriteRepositoriesAtom, recentRepositoriesAtom, repoRollupAtom, selectedRepositoryIndexAtom } from "../../workspace/atoms.js"
 import type { WorkspaceSurface } from "../../workspaceSurfaces.js"
 import type { RepoRollupRow } from "../../services/CacheService.js"
-import type { GitHubOrganization } from "../../launchOptions.js"
+import type { LaunchScope } from "../../launchOptions.js"
 // Match @effect/atom-react's polymorphic setter: accepts either a value
 // or an updater. Both forms are used across consumers (preferences
 // persistence passes values; workspace nav passes updaters).
@@ -22,7 +22,7 @@ export interface UseRepoSurfaceInput {
 	readonly activeWorkspaceSurface: WorkspaceSurface
 	readonly detectedRepository: string | null
 	readonly mockRepositoryCatalog: readonly CatalogEntry[]
-	readonly organization: GitHubOrganization | null
+	readonly scope: LaunchScope
 	readonly flashNotice: (message: string) => void
 }
 
@@ -56,7 +56,7 @@ export interface RepoSurfaceShell {
 // navigation-driven recents updates) read the atoms or setters exposed
 // in the return value.
 export const useRepoSurface = (input: UseRepoSurfaceInput): RepoSurfaceShell => {
-	const { pullRequests, allIssues, visibleFilterText, activeWorkspaceSurface, detectedRepository, mockRepositoryCatalog, organization, flashNotice } = input
+	const { pullRequests, allIssues, visibleFilterText, activeWorkspaceSurface, detectedRepository, mockRepositoryCatalog, scope, flashNotice } = input
 
 	const [selectedRepositoryIndex, setSelectedRepositoryIndex] = useAtom(selectedRepositoryIndexAtom)
 	const [favoriteRepositories, setFavoriteRepositories] = useAtom(favoriteRepositoriesAtom)
@@ -72,11 +72,11 @@ export const useRepoSurface = (input: UseRepoSurfaceInput): RepoSurfaceShell => 
 				detectedRepository,
 				repoRollup,
 				pullRequests,
-				organization,
+				scope,
 				allIssues,
 				mockRepositoryCatalog,
 			}),
-		[favoriteRepositories, recentRepositories, pullRequests, allIssues, repoRollup, detectedRepository, mockRepositoryCatalog, organization],
+		[favoriteRepositories, recentRepositories, pullRequests, allIssues, repoRollup, detectedRepository, mockRepositoryCatalog, scope],
 	)
 	const repositoryItems = useMemo(
 		() => (activeWorkspaceSurface === "repos" ? allRepositoryItems.filter((repository) => repositoryFilterScore(repository, visibleFilterText) !== null) : allRepositoryItems),

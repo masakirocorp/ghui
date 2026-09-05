@@ -1,4 +1,4 @@
-import { getLaunchOptions, type GitHubOrganization } from "./launchOptions.js"
+import { getLaunchOptions, launchScopeCacheKey, launchScopeOrganization, type LaunchScope, parseGitHubRepository } from "./launchOptions.js"
 
 //
 // GitHub's GraphQL `search(type: ISSUE, …)` returns both pull requests and
@@ -70,18 +70,28 @@ const modeQualifier = (mode: ItemListMode): string | null => {
 // Always restricts to open items in non-archived repositories, sorted by most
 // recently updated. Throws `IllegalQueryError` for `mode: "all"` with no
 // repository — that combination means "every PR/issue on GitHub" and is never
-// intentional.
-export const searchQualifier = (input: ItemListInput, organization: GitHubOrganization | null = getLaunchOptions().organization): string => {
+// intentional. An explicit repository list scope is fetched as a union by
+// GitHubService, one repository at a time, so it cannot be represented as a
+// single search qualifier without changing the result semantics.
+export const searchQualifier = (input: ItemListInput, scope: LaunchScope = getLaunchOptions().scope): string => {
 	if (input.mode === "all" && input.repository === null) {
 		throw new IllegalQueryError(`mode "all" requires a repository; got null for kind=${input.kind}`)
+	}
+	const repository = input.repository === null ? null : parseGitHubRepository(input.repository)
+	if (input.repository !== null && repository === null) {
+		throw new IllegalQueryError(`invalid repository ${JSON.stringify(input.repository)}`)
+	}
+	if (input.repository === null && scope._tag === "Repositories") {
+		throw new IllegalQueryError("multi-repository scope requires a paginated union, not one search query")
 	}
 	const parts: string[] = [kindQualifier(input.kind)]
 	const peopleQualifier = modeQualifier(input.mode)
 	if (peopleQualifier !== null) parts.push(peopleQualifier)
-	if (input.repository !== null) {
-		parts.push(`repo:${input.repository}`)
-	} else if (organization !== null) {
-		parts.push(`org:${organization}`)
+	if (repository !== null) {
+		parts.push(`repo:${repository}`)
+	} else {
+		const organization = launchScopeOrganization(scope)
+		if (organization !== null) parts.push(`org:${organization}`)
 	}
 	parts.push("is:open", "archived:false", "sort:updated-desc")
 	return parts.join(" ")
@@ -104,18 +114,16 @@ export interface IssueQuery {
 export type ItemQuery = PullRequestQuery | IssueQuery
 
 // Stable identifier for a query's *server-visible* shape. Two queries that
-// differ only in `textFilter` share a cache key on purpose — typing in the
+// differ only by `textFilter` share a cache key on purpose — typing in the
 // filter input must not evict loaded pages.
-export const itemQueryCacheKey = (kind: ItemKind, query: ItemQuery, organization: GitHubOrganization | null = getLaunchOptions().organization): string => {
-	const repo = query.repository ?? "_"
-	const base = `${kind}:${query.mode}:${repo}`
-	return organization === null ? base : `${base}:org:${organization}`
+export const itemQueryCacheKey = (kind: ItemKind, query: ItemQuery, scope: LaunchScope = getLaunchOptions().scope): string => {
+	const repository = query.repository === null ? null : parseGitHubRepository(query.repository)
+	if (query.repository !== null && repository === null) throw new IllegalQueryError(`invalid repository ${JSON.stringify(query.repository)}`)
+	const repo = repository ?? "_"
+	return `${kind}:${query.mode}:${repo}:scope:${launchScopeCacheKey(scope)}`
 }
 
-export const itemQueryCacheKeyHasRepository = (key: string): boolean => {
-	const parts = key.split(":")
-	return parts[2] !== "_"
-}
+export const itemQueryCacheKeyHasRepository = (key: string): boolean => key.split(":")[2] !== "_"
 
 export const pullRequestQueryToListInput = (query: PullRequestQuery, cursor: string | null, pageSize: number): ItemListInput<"pullRequest"> => ({
 	kind: "pullRequest",

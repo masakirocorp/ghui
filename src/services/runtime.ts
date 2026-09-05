@@ -10,6 +10,7 @@ import { Clipboard } from "./Clipboard.js"
 import { EditorOpener } from "./EditorOpener.js"
 import { CommandRunner } from "./CommandRunner.js"
 import { GitHubService } from "./GitHubService.js"
+import { GardnHandoff } from "./GardnHandoff.js"
 
 const parseOptionalPositiveInt = (value: string | undefined, fallback: number | null) => {
 	if (value === undefined) return fallback
@@ -21,7 +22,7 @@ export const mockPrCount = parseOptionalPositiveInt(process.env.GHUI_MOCK_PR_COU
 export const mockRepository = process.env.GHUI_MOCK_REPOSITORY?.trim() || null
 export const detectedRepository = (() => {
 	const repository = mockPrCount === null ? detectCurrentGitHubRepository() : mockRepository
-	return scopeDetectedRepository(repository, config.organization)
+	return scopeDetectedRepository(repository, config.scope)
 })()
 export const mockUsername = process.env.GHUI_MOCK_USERNAME?.trim() || (mockPrCount !== null ? "kitlangton" : undefined)
 
@@ -53,6 +54,7 @@ const githubServiceLayer =
 				repoCount: parseOptionalPositiveInt(process.env.GHUI_MOCK_REPO_COUNT, 4) ?? 4,
 				repository: mockRepository,
 				repositories: mockRepositoryCatalog.map((repo) => repo.repository),
+				scope: config.scope,
 				...(mockUsername ? { username: mockUsername } : {}),
 			})
 		: GitHubService.layerNoDeps
@@ -62,7 +64,7 @@ const cacheServiceLayer = mockPrCount !== null ? CacheService.disabledLayer : Ca
 const editorOpenerLayer = mockPrCount !== null ? EditorOpener.mockLayer : EditorOpener.layerNoDeps
 
 export const githubRuntime = Atom.runtime(
-	Layer.mergeAll(githubServiceLayer, cacheServiceLayer, Clipboard.layerNoDeps, BrowserOpener.layerNoDeps, editorOpenerLayer).pipe(
+	Layer.mergeAll(githubServiceLayer, cacheServiceLayer, Clipboard.layerNoDeps, BrowserOpener.layerNoDeps, editorOpenerLayer, GardnHandoff.layerNoDeps).pipe(
 		Layer.provide(CommandRunner.layer),
 		Layer.provideMerge(Observability.layer),
 	),

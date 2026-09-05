@@ -44,6 +44,7 @@ type Handoff =
 	| "viewReview"
 	| "viewAssigned"
 	| "viewMentioned"
+	| "openGardnAgentPicker"
 
 const slots: Partial<Record<Handoff, () => void>> = {}
 

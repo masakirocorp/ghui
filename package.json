@@ -1,6 +1,6 @@
 {
 	"name": "@kitlangton/ghui",
-	"version": "0.10.0-masakiro.4",
+	"version": "0.10.0-masakiro.5",
 	"description": "Terminal UI for GitHub pull requests",
 	"type": "module",
 	"license": "MIT",

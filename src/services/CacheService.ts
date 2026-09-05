@@ -19,7 +19,7 @@ import {
 import { config } from "../config.js"
 import type { IssueLoad } from "../issueLoad.js"
 import { type IssueView, issueViewCacheKey } from "../issueViews.js"
-import { repositoryBelongsToOrganization } from "../launchOptions.js"
+import { launchScopeCacheKey, launchScopeIncludesRepository, parseGitHubRepository } from "../launchOptions.js"
 import { mergeCachedDetails } from "../pullRequestCache.js"
 import type { PullRequestLoad } from "../pullRequestLoad.js"
 import { type PullRequestView, viewCacheKey } from "../pullRequestViews.js"
@@ -717,13 +717,10 @@ const liveCacheService = (sql: SqlClient.SqlClient) => {
 
 	const readRepoRollup = (viewer: string): Effect.Effect<readonly RepoRollupRow[], CacheError> =>
 		Effect.gen(function* () {
-			// Viewer-scoped GROUP BY over the items referenced by this viewer's
-			// queue snapshots. PR + issue tables are aggregated independently then
-			// merged in code so the final row carries both counts and the latest
-			// activity across kinds. `last_activity_at` reads the domain `updatedAt`
-			// from `data_json` (sortable as ISO 8601), not the row write time —
-			// the latter would always reflect "now-ish" since rows are upserted on
-			// every queue write.
+			// Viewer-scoped GROUP BY over the items referenced by this launch
+			// scope's queue snapshots. PR + issue tables are aggregated
+			// independently, then merged in code.
+			const scopeSuffix = `:scope:${launchScopeCacheKey(config.scope)}`
 			const prRows = yield* sql<RepoRollupQueryRow>`
 				SELECT pr.repository AS repository,
 					COUNT(*) AS count,
@@ -733,6 +730,7 @@ const liveCacheService = (sql: SqlClient.SqlClient) => {
 					SELECT json_each.value
 					FROM queue_snapshots, json_each(queue_snapshots.pr_keys_json)
 					WHERE viewer = ${viewer} AND view_key LIKE 'pullRequest:%'
+						AND substr(view_key, ${-scopeSuffix.length}) = ${scopeSuffix}
 				)
 				GROUP BY pr.repository`
 			const issueRows = yield* sql<RepoRollupQueryRow>`
@@ -744,6 +742,7 @@ const liveCacheService = (sql: SqlClient.SqlClient) => {
 					SELECT json_each.value
 					FROM queue_snapshots, json_each(queue_snapshots.pr_keys_json)
 					WHERE viewer = ${viewer} AND view_key LIKE 'issue:%'
+						AND substr(view_key, ${-scopeSuffix.length}) = ${scopeSuffix}
 				)
 				GROUP BY i.repository`
 
@@ -762,14 +761,16 @@ const liveCacheService = (sql: SqlClient.SqlClient) => {
 				if (!entry.lastActivityAt || entry.lastActivityAt < date) entry.lastActivityAt = date
 			}
 			for (const row of prRows) {
-				if (!repositoryBelongsToOrganization(row.repository, config.organization)) continue
-				const entry = ensure(row.repository)
+				const repository = parseGitHubRepository(row.repository)
+				if (repository === null || !launchScopeIncludesRepository(config.scope, repository)) continue
+				const entry = ensure(repository)
 				entry.pullRequestCount = row.count
 				bumpActivity(entry, row.last_activity_at)
 			}
 			for (const row of issueRows) {
-				if (!repositoryBelongsToOrganization(row.repository, config.organization)) continue
-				const entry = ensure(row.repository)
+				const repository = parseGitHubRepository(row.repository)
+				if (repository === null || !launchScopeIncludesRepository(config.scope, repository)) continue
+				const entry = ensure(repository)
 				entry.issueCount = row.count
 				bumpActivity(entry, row.last_activity_at)
 			}

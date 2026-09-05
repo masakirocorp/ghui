@@ -1,5 +1,17 @@
 # @kitlangton/ghui
 
+## 0.10.0-masakiro.5
+
+### Minor Changes
+
+- Add immutable multi-repository launch scope, a repository scope picker, and Space names.
+- Add actionable Overview queues and repository-wide Actions with run details and log links.
+- Add verified local checkout, isolated review Space, and explicit agent-context handoffs to Gardn.
+
+### Patch Changes
+
+- Isolate scoped caches by exact repository identity and preserve pagination when page sizes change.
+
 ## 0.10.0-masakiro.4
 
 ### Patch Changes

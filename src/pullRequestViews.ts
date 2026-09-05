@@ -1,3 +1,4 @@
+import { parseGitHubRepository } from "./launchOptions.js"
 import { pullRequestQueueLabels, pullRequestQueueModes, type PullRequestQueueMode, type PullRequestUserQueueMode } from "./domain.js"
 import { type ItemListInput, itemQueryCacheKey, pullRequestQueryToListInput, type PullRequestQuery } from "./item.js"
 
@@ -47,8 +48,8 @@ export const parseRepositoryInput = (input: string) => {
 	const shorthandMatch = trimmed.match(/^([^/\s]+)\/([^/\s]+)$/)
 	const match = urlMatch ?? shorthandMatch
 	if (!match) return null
-	const owner = match[1]!
-	const repo = match[2]!.replace(/\.git$/i, "")
-	if (!/^[A-Za-z0-9_.-]+$/.test(owner) || !/^[A-Za-z0-9_.-]+$/.test(repo)) return null
-	return `${owner}/${repo}`
+	const owner = match[1]
+	const repo = match[2]
+	if (owner === undefined || repo === undefined) return null
+	return parseGitHubRepository(`${owner}/${repo}`)
 }

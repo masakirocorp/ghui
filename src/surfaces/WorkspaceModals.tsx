@@ -12,6 +12,7 @@ import {
 	LabelModal,
 	MergeModal,
 	OpenRepositoryModal,
+	GardnAgentPickerModal,
 	PullRequestStateModal,
 	SubmitReviewModal,
 	ThemeModal,
@@ -44,6 +45,10 @@ export interface WorkspaceModalsProps {
 	readonly onRunCommand: (command: AppCommand) => void
 	readonly onCommentChange: (body: string, cursor: number) => void
 	readonly onCommentSubmit: () => void
+	readonly onSelectGardnAgent: (index: number) => void
+	readonly onSendGardnAgent: () => void
+	readonly scopeRepositories: readonly string[]
+	readonly onChooseScope: (repository: string | null) => void
 	// When the docked diff-file panel is rendering the picker inline, the
 	// modal must stand down so both presentations don't fight for the screen.
 	readonly suppressChangedFilesModal: boolean
@@ -83,7 +88,12 @@ export const WorkspaceModals = (props: WorkspaceModalsProps) =>
 		Filter: (state) => <FilterModal state={state} {...layoutToProps(props.layouts.Filter)} />,
 		SubmitReview: (state) => <SubmitReviewModal state={state} {...layoutToProps(props.layouts.SubmitReview)} />,
 		Theme: (state) => <ThemeModal state={state} {...layoutToProps(props.layouts.Theme)} />,
-		OpenRepository: (state) => <OpenRepositoryModal state={state} {...layoutToProps(props.layouts.OpenRepository)} />,
+		OpenRepository: (state) => (
+			<OpenRepositoryModal state={state} repositories={props.scopeRepositories} onChoose={props.onChooseScope} {...layoutToProps(props.layouts.OpenRepository)} />
+		),
+		GardnAgentPicker: (state) => (
+			<GardnAgentPickerModal state={state} onSelect={props.onSelectGardnAgent} onSend={props.onSendGardnAgent} {...layoutToProps(props.layouts.GardnAgentPicker)} />
+		),
 		CommandPalette: (state) => (
 			<CommandPalette
 				commands={props.commandPaletteCommands}

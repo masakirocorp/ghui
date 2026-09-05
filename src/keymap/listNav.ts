@@ -39,6 +39,7 @@ const reposActive = (s: ListNavCtx) => s.activeSurface === "repos"
 const filterableSurfaceActive = (s: ListNavCtx) => s.canGoUpWorkspace && (s.activeSurface === "pullRequests" || s.activeSurface === "issues")
 const pullRequestsActive = (s: ListNavCtx) => s.activeSurface === "pullRequests"
 const issuesActive = (s: ListNavCtx) => s.activeSurface === "issues"
+const actionsActive = (s: ListNavCtx) => s.activeSurface === "actions"
 const surfaceAt = (s: ListNavCtx, index: number) => s.surfaces[index] ?? null
 const goHome = (s: ListNavCtx) => {
 	if (s.canGoUpWorkspace) s.goUpWorkspace()
@@ -52,6 +53,27 @@ export const listNavKeymap = List(
 	{ id: "workspace.third", title: "Third surface", keys: ["3"], run: (s) => (surfaceAt(s, 2) ? s.switchWorkspaceSurface(surfaceAt(s, 2)!) : undefined) },
 	{ id: "workspace.next-tab", title: "Next surface", keys: ["tab"], run: (s) => s.cycleWorkspaceSurface(1) },
 	{ id: "workspace.prev-tab", title: "Previous surface", keys: ["shift+tab"], run: (s) => s.cycleWorkspaceSurface(-1) },
+	{
+		id: "workspace.fourth",
+		title: "Fourth surface",
+		keys: ["4"],
+		run: (s) => {
+			const surface = surfaceAt(s, 3)
+			if (surface) s.switchWorkspaceSurface(surface)
+		},
+	},
+	{
+		id: "workspace.fifth",
+		title: "Fifth surface",
+		keys: ["5"],
+		run: (s) => {
+			const surface = surfaceAt(s, 4)
+			if (surface) s.switchWorkspaceSurface(surface)
+		},
+	},
+	{ id: "workspace.scope", title: "Choose scope", keys: ["g s"], run: (s) => s.openRepositoryPicker() },
+	{ id: "workspace.overview", title: "Overview", keys: ["g v"], run: (s) => s.switchWorkspaceSurface("overview") },
+	{ id: "workspace.actions", title: "Actions", keys: ["g a"], run: (s) => s.switchWorkspaceSurface("actions") },
 	{ id: "workspace.go-home", title: "Go home", keys: ["g h"], run: goHome },
 	{ id: "workspace.go-repos", title: "Go to repositories", keys: ["g r"], run: goHome },
 	{ id: "workspace.go-pulls", title: "Go to pull requests", keys: ["g p"], run: (s) => s.switchWorkspaceSurface("pullRequests") },
@@ -60,15 +82,27 @@ export const listNavKeymap = List(
 	{ id: "list.add-repo", title: "Add repository", keys: ["a"], when: reposActive, run: (s) => s.openRepositoryPicker() },
 	{ id: "list.favorite-repo", title: "Favorite repository", keys: ["f"], when: reposActive, run: (s) => s.toggleFavoriteRepository() },
 	{ id: "list.scope-filter", title: "Filter items", keys: ["f"], when: filterableSurfaceActive, run: (s) => s.openFilterModal() },
+	{ id: "actions.filter-failed", title: "Show failed workflow runs", keys: ["f"], when: actionsActive, run: (s) => s.runCommandById("actions.filter.failed") },
+	{ id: "actions.filter-running", title: "Show running workflow runs", keys: ["shift+f"], when: actionsActive, run: (s) => s.runCommandById("actions.filter.running") },
 	{ id: "list.remove-repo", title: "Remove repository", keys: ["x"], when: reposActive, run: (s) => s.removeSelectedRepository() },
 	{ id: "list.refresh", title: "Refresh", keys: ["r"], when: pullRequestsActive, run: (s) => s.runCommandById("pull.refresh") },
 	{ id: "list.refresh-issues", title: "Refresh issues", keys: ["r"], when: (s) => s.activeSurface === "issues", run: (s) => s.runCommandById("issue.refresh") },
+	{ id: "overview.refresh", title: "Refresh overview", keys: ["r"], when: (s) => s.activeSurface === "overview", run: (s) => s.runCommandById("overview.refresh") },
+	{ id: "actions.refresh", title: "Refresh workflow runs", keys: ["r"], when: actionsActive, run: (s) => s.runCommandById("actions.refresh") },
+	{ id: "actions.filter-all", title: "Show all workflow runs", keys: ["shift+a"], when: actionsActive, run: (s) => s.runCommandById("actions.filter.all") },
 	{ id: "list.theme", title: "Theme", keys: ["t"], run: (s) => s.runCommandById("theme.open") },
 	{ id: "list.diff", title: "Open diff", keys: ["d"], when: pullRequestsActive, run: (s) => s.runCommandById("diff.open") },
 	{ id: "list.runs", title: "Open workflow runs", keys: ["a"], when: pullRequestsActive, run: (s) => s.runCommandById("runs.open") },
-	{ id: "list.comments", title: "Open comments", keys: ["c"], enabled: itemSelected, run: (s) => s.runCommandById("comments.open") },
+	{
+		id: "list.comments",
+		title: "Open comments",
+		keys: ["c"],
+		when: (s) => pullRequestsActive(s) || issuesActive(s),
+		enabled: itemSelected,
+		run: (s) => s.runCommandById("comments.open"),
+	},
 	{ id: "list.review", title: "Review pull request", keys: ["shift+r"], when: pullRequestsActive, run: (s) => s.runCommandById("pull.submit-review") },
-	{ id: "list.labels", title: "Labels", keys: ["l"], enabled: itemSelected, run: (s) => s.runCommandById("pull.labels") },
+	{ id: "list.labels", title: "Labels", keys: ["l"], when: (s) => pullRequestsActive(s) || issuesActive(s), enabled: itemSelected, run: (s) => s.runCommandById("pull.labels") },
 	{ id: "list.merge", title: "Merge", keys: ["m", "shift+m"], when: pullRequestsActive, run: (s) => s.runCommandById("pull.merge") },
 	{ id: "list.close-pr", title: "Close PR", keys: ["x"], when: pullRequestsActive, run: (s) => s.runCommandById("pull.close") },
 	{ id: "list.close-issue", title: "Close issue", keys: ["x"], when: issuesActive, run: (s) => s.runCommandById("issue.close") },

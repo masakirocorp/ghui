@@ -3,6 +3,7 @@ import type { DiffCommentSide, PullRequestLabel, PullRequestMergeInfo, PullReque
 import type { ThemeConfig, ThemeMode } from "../../themeConfig.js"
 import type { ThemeId, ThemeTone } from "../colors.js"
 import type { WorkspaceSurface } from "../../workspaceSurfaces.js"
+import type { GardnAgent, GardnHandoffContext } from "../../services/GardnHandoff.js"
 
 export interface LabelModalState {
 	readonly repository: string | null
@@ -142,6 +143,16 @@ export interface OpenRepositoryModalState {
 	readonly error: string | null
 }
 
+export interface GardnAgentPickerState {
+	readonly context: GardnHandoffContext | null
+	readonly contextPreview: string
+	readonly agents: readonly GardnAgent[]
+	readonly selectedIndex: number
+	readonly loading: boolean
+	readonly sending: boolean
+	readonly error: string | null
+}
+
 export const initialLabelModalState: LabelModalState = {
 	repository: null,
 	target: null,
@@ -248,6 +259,16 @@ export const initialOpenRepositoryModalState: OpenRepositoryModalState = {
 	error: null,
 }
 
+export const initialGardnAgentPickerState: GardnAgentPickerState = {
+	context: null,
+	contextPreview: "",
+	agents: [],
+	selectedIndex: 0,
+	loading: false,
+	sending: false,
+	error: null,
+}
+
 export type Modal = Data.TaggedEnum<{
 	None: {}
 	Label: LabelModalState
@@ -263,6 +284,7 @@ export type Modal = Data.TaggedEnum<{
 	Theme: ThemeModalState
 	CommandPalette: CommandPaletteState
 	OpenRepository: OpenRepositoryModalState
+	GardnAgentPicker: GardnAgentPickerState
 }>
 
 export const Modal = Data.taggedEnum<Modal>()
@@ -285,4 +307,5 @@ export const modalInitialStates = {
 	Theme: initialThemeModalState,
 	CommandPalette: initialCommandPaletteState,
 	OpenRepository: initialOpenRepositoryModalState,
+	GardnAgentPicker: initialGardnAgentPickerState,
 } as const satisfies { [Tag in Exclude<ModalTag, "None">]: ModalState<Tag> }

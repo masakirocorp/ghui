@@ -3,7 +3,7 @@
 Masakiro-maintained fork of [`kitlangton/ghui`](https://github.com/kitlangton/ghui),
 used by Gardn as its terminal GitHub workspace. It retains the upstream ghui
 product and Kit Langton's original credit while adding launch-scoped controls
-for organization filtering and terminal presentation.
+for repository scope, Gardn handoffs, and terminal presentation.
 
 Terminal UI for keeping up with your open GitHub pull requests across repositories.
 
@@ -67,14 +67,24 @@ bun run dev
 - `GHUI_RUN_FETCH_LIMIT`: max workflow runs fetched per PR, defaults to `20`
 - `GHUI_THEME`: launch-only fixed theme override, such as `system`; invalid theme IDs are ignored
 - `GHUI_ORG`: launch-only GitHub organization scope
+- `GHUI_REPOSITORIES`: launch-only JSON array of `owner/repo` identities; takes precedence over `GHUI_ORG`
+- `GHUI_WORKSPACE_NAME`: Gardn Space name displayed for the launch
+- `GHUI_REPOSITORY_PATHS`: JSON object mapping repository identities to local checkouts for Gardn handoffs
 - `GHUI_SHOW_SCROLLBARS`: launch-only scrollbar override, set to `true` to show scrollbar rails
 - `GHUI_SYSTEM_THEME_AUTO_RELOAD`: launch-only system theme reload override; accepts `true` or `false`
 
-Pass `--org <login>` to scope the launch to an organization. The CLI option
-overrides `GHUI_ORG`; organization logins must be 1-39 ASCII letters, digits,
-or single hyphens. Invalid CLI and environment values fail before the TUI
-starts. The organization scope filters HOME queues and repositories. Explicit
-repository views remain unchanged, and the scope is never written to config.
+Pass `--org <login>` to scope the launch to an organization. Repeat
+`--repo <owner/repo>` to select one or more repositories. CLI scope options
+override environment scope. `--org` and `--repo` cannot be combined.
+Repository identities are case-insensitive and duplicates are removed.
+Invalid scope values fail before the TUI starts. An empty environment value
+means no override, but an empty repository array is invalid.
+
+The launch scope filters HOME queues and the repository catalog. Selecting
+a repository narrows that scope. Returning HOME restores the launch scope,
+not an unrestricted GitHub view. Explicit outside-scope repository views
+remain available. Scope is never written to configuration and does not
+change when a shell changes directories.
 
 `GHUI_SHOW_SCROLLBARS` and `GHUI_SYSTEM_THEME_AUTO_RELOAD` take precedence
 over their saved settings for that launch only. Boolean overrides accept the
@@ -86,6 +96,8 @@ Example:
 ```bash
 GHUI_ORG=kitlangton ghui
 ghui --org kitlangton
+ghui --repo masakirocorp/gardn --repo masakirocorp/ghui
+GHUI_REPOSITORIES='["masakirocorp/gardn","masakirocorp/ghui"]' ghui
 GHUI_SHOW_SCROLLBARS=true ghui --org kitlangton
 GHUI_THEME=system GHUI_SYSTEM_THEME_AUTO_RELOAD=true ghui
 ```
@@ -176,6 +188,40 @@ scoped to the PR's head commit:
 - `n` / `p` jump between failures, `enter` expands a step, `o` opens the run in your browser, `r` refreshes, and `esc` walks back out.
 
 Requires the GitHub CLI (`gh`) the same as the rest of ghui; nothing extra to configure.
+
+### Overview and repository-wide Actions
+
+Gardn launches open Overview with authored pull requests, requested reviews,
+and assigned issues. Click an item to read its details. Use the command palette
+to open its checkout, create a review Space, or preview an agent handoff.
+
+Actions lists workflow runs across the current scope. It loads only when you
+open the tab. Click the filter to cycle all, failed, and running workflows.
+Click a run to inspect jobs and steps. Click a step to open its GitHub log.
+Press `r` to refresh and `esc` to return to the list.
+
+Click the scope header or press `g s` to choose a repository. Click the Space
+name in a narrowed view, or choose HOME in the picker, to restore launch scope.
+Press `g v` for Overview and `g a` for Actions.
+
+### Gardn handoffs
+
+Gardn launches provide an explicit binary path and session socket. Standalone
+launches do not fall back to an ambient Gardn session.
+
+Checkout handoffs verify that a local Git remote matches the selected
+repository. ghui uses `GHUI_REPOSITORY_PATHS`, then `repoPaths`, then the
+current directory to locate that checkout.
+
+Review Spaces require Worktrunk. ghui fetches the selected pull request
+snapshot and creates a separate worktree without running Worktrunk hooks.
+It leaves the original checkout on its current branch. Repeating the handoff
+reuses the review Space. If its branch changed or it contains uncommitted work,
+ghui preserves that work and reports an error.
+
+Agent handoffs send repository, URL, commit, and status context to an
+explicitly selected agent. They do not send pull request bodies or
+automatically ask the agent to edit code.
 
 ## Keybindings
 

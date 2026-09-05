@@ -1,10 +1,12 @@
-export const repositoryWorkspaceSurfaces = ["pullRequests", "issues"] as const
-export const userWorkspaceSurfaces = ["repos", "pullRequests", "issues"] as const
+export const repositoryWorkspaceSurfaces = ["overview", "actions", "pullRequests", "issues"] as const
+export const userWorkspaceSurfaces = ["overview", "actions", "repos", "pullRequests", "issues"] as const
 export const workspaceSurfaces = userWorkspaceSurfaces
 
 export type WorkspaceSurface = (typeof workspaceSurfaces)[number]
 
 export const workspaceSurfaceLabels: Record<WorkspaceSurface, string> = {
+	overview: "OVERVIEW",
+	actions: "ACTIONS",
 	repos: "REPOS",
 	pullRequests: "PULL REQUESTS",
 	issues: "ISSUES",

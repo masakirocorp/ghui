@@ -13,6 +13,7 @@ import { buildMergeModalCtx, type BuildMergeModalCtxInput } from "./mergeModalCt
 import { buildPullRequestStateModalCtx, type BuildPullRequestStateModalCtxInput } from "./pullRequestStateModalCtx.ts"
 import { buildSubmitReviewModalCtx, type BuildSubmitReviewModalCtxInput } from "./submitReviewModalCtx.ts"
 import { buildThemeModalCtx, type BuildThemeModalCtxInput } from "./themeModalCtx.ts"
+import type { GardnAgentPickerCtx } from "../gardnAgentPicker.ts"
 
 // Five modal contexts are pure rename adapters from App's local handler names
 // to the keymap's expected method names. They live inline here rather than in
@@ -60,6 +61,7 @@ export interface BuildAppCtxFlags {
 	readonly commentModalActive: boolean
 	readonly deleteCommentModalActive: boolean
 	readonly commandPaletteActive: boolean
+	readonly gardnAgentPickerActive: boolean
 	readonly filterMode: boolean
 	readonly diffFullView: boolean
 	readonly runsFullView: boolean
@@ -83,6 +85,7 @@ export interface BuildAppCtxInput {
 	readonly commentModal: BuildCommentModalCtxInput
 	readonly deleteCommentModal: BuildDeleteCommentModalCtxInput
 	readonly commandPalette: BuildCommandPaletteCtxInput
+	readonly gardnAgentPicker: GardnAgentPickerCtx
 	readonly filterModeCtx: BuildFilterModeCtxInput
 	readonly diff: BuildDiffViewCtxInput
 	readonly runs: RunsViewCtx
@@ -116,6 +119,7 @@ export const buildAppCtx = (input: BuildAppCtxInput): AppCtx => ({
 	commentModal: buildCommentModalCtx(input.commentModal),
 	deleteCommentModal: { closeModal: input.deleteCommentModal.closeActiveModal, confirmDelete: input.deleteCommentModal.confirmDeleteComment },
 	commandPalette: buildCommandPaletteCtx(input.commandPalette),
+	gardnAgentPicker: input.gardnAgentPicker,
 	filterModeCtx: buildFilterModeCtx(input.filterModeCtx),
 	diff: buildDiffViewCtx(input.diff),
 	runs: input.runs,

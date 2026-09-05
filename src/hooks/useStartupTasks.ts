@@ -1,7 +1,7 @@
 import { useEffect } from "react"
 import { devLog } from "../devLog.js"
 import type { IssueItem, PullRequestItem } from "../domain.js"
-import { repositoryBelongsToOrganization, type GitHubOrganization } from "../launchOptions.js"
+import { launchScopeIncludesRepository, type LaunchScope } from "../launchOptions.js"
 import type { RepoRollupRow } from "../services/CacheService.js"
 
 interface PullRequestLoadShape {
@@ -16,7 +16,7 @@ export interface UseStartupTasksInput {
 	readonly username: string | null
 	readonly recentRepositories: readonly string[]
 	readonly favoriteRepositories: Readonly<Record<string, boolean>>
-	readonly organization: GitHubOrganization | null
+	readonly scope: LaunchScope
 	readonly detectedRepository: string | null
 	readonly pullRequestLoad: PullRequestLoadShape | null
 	readonly issueLoad: IssueLoadShape | null
@@ -47,7 +47,7 @@ export const useStartupTasks = ({
 	username,
 	recentRepositories,
 	favoriteRepositories,
-	organization,
+	scope,
 	detectedRepository,
 	pullRequestLoad,
 	issueLoad,
@@ -75,13 +75,13 @@ export const useStartupTasks = ({
 		const repositories = Array.from(
 			new Set(
 				[...recentRepositories, ...Object.keys(favoriteRepositories), ...(detectedRepository ? [detectedRepository] : [])].filter((repository) =>
-					repositoryBelongsToOrganization(repository, organization),
+					launchScopeIncludesRepository(scope, repository),
 				),
 			),
 		)
 		if (repositories.length === 0) return
 		void prewarmRepositoryDetails(repositories).catch((cause) => devLog("useStartupTasks:prewarmFailed", { repositories, cause: String(cause) }))
-	}, [username, recentRepositories, favoriteRepositories, organization, detectedRepository, prewarmRepositoryDetails])
+	}, [username, recentRepositories, favoriteRepositories, scope, detectedRepository, prewarmRepositoryDetails])
 
 	useEffect(() => {
 		if (!persistQueueSelection) return

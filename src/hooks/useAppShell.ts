@@ -1,7 +1,7 @@
 import { RegistryContext, useAtom, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { useRenderer, useTerminalDimensions } from "@opentui/react"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
-import { useContext, useEffect, useRef, useState } from "react"
+import { useContext, useEffect, useMemo, useRef, useState } from "react"
 import type { AppCommand } from "../commands.js"
 import { parseRepositoryInput } from "../pullRequestViews.js"
 
@@ -59,6 +59,7 @@ import { showScrollbarsAtom, themeIdAtom } from "../ui/theme/atoms.js"
 import { useThemeModal } from "../ui/theme/useThemeModal.js"
 import { useMergeFlow } from "../ui/merge/useMergeFlow.js"
 import { initialCommentModalState, submitReviewOptions } from "../ui/modals.js"
+import { activeModalAtom } from "../ui/modals/atoms.js"
 import { useClampedIndex } from "../ui/useClampedIndex.js"
 import { useCommandHandoffs } from "./useCommandHandoffs.js"
 import { useDiffCommentDerivations } from "./useDiffCommentDerivations.js"
@@ -66,6 +67,14 @@ import { useDiffCommentNavigator } from "./useDiffCommentNavigator.js"
 import { repositoryWorkspaceSurfaces, userWorkspaceSurfaces, type WorkspaceSurface } from "../workspaceSurfaces.js"
 import { detectedRepository, mockRepositoryCatalog, mockWorkspacePreferencesPath } from "../services/runtime.js"
 import { config } from "../config.js"
+import { launchScopeRepositories } from "../launchOptions.js"
+import { overviewAtom, overviewLoad } from "../ui/overview/atoms.js"
+import { actionRunDetailsFor, actionsAtom, actionsFilterAtom, actionsLoad, selectedActionRunAtom } from "../ui/actions/atoms.js"
+import { filterActionRuns } from "../surfaces/ActionsSurface.js"
+import { flattenRunRows } from "../ui/runs/runsRows.js"
+import { buildOverviewRows, type OverviewRow } from "../surfaces/overviewRows.js"
+import { gardnContextText, gardnHandoffAvailable, type GardnHandoffContext } from "../services/GardnHandoff.js"
+import { gardnContextAtom, gardnListAgentsAtom, gardnSendContextAtom } from "../services/gardnAtoms.js"
 
 export interface UseAppShellInput {
 	readonly systemThemeGeneration: number
@@ -132,6 +141,7 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		closeModalActive,
 		pullRequestStateModalActive,
 		mergeModalActive,
+		gardnAgentPickerActive,
 		commentModalActive,
 		deleteCommentModalActive,
 		commentThreadModalActive,
@@ -145,6 +155,7 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		closeModal,
 		pullRequestStateModal,
 		mergeModal,
+		gardnAgentPicker,
 		commentModal,
 		deleteCommentModal,
 		changedFilesModal,
@@ -163,6 +174,7 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		setFilterModal,
 		setSubmitReviewModal,
 		setThemeModal,
+		setGardnAgentPicker,
 		setCommandPalette,
 		setOpenRepositoryModal,
 	} = useModalStack()
@@ -248,6 +260,23 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 	)
 
 	const [activeWorkspaceSurface, setActiveWorkspaceSurface] = useAtom(workspaceSurfaceAtom)
+	const [workspaceSelectedIndex, setWorkspaceSelectedIndex] = useState(0)
+	const [overviewDetail, setOverviewDetail] = useState<OverviewRow | null>(null)
+	const overviewResult = useAtomValue(overviewAtom)
+	const overviewState = overviewLoad(overviewResult)
+	const actionsResult = useAtomValue(actionsAtom)
+	const actionsState = actionsLoad(actionsResult)
+	const setSelectedActionRun = useAtomSet(selectedActionRunAtom)
+	const selectedActionRun = useAtomValue(selectedActionRunAtom)
+	const overviewRows = overviewState.status === "ready" ? buildOverviewRows(overviewState.data) : []
+	const listGardnAgents = useAtomSet(gardnListAgentsAtom, { mode: "promise" })
+	const sendGardnContext = useAtomSet(gardnSendContextAtom, { mode: "promise" })
+	const actionsFilter = useAtomValue(actionsFilterAtom)
+	const actionRuns = actionsState.status === "ready" ? filterActionRuns(actionsState.data.runs, actionsFilter) : []
+	const actionDetailResult = useAtomValue(actionRunDetailsFor(selectedActionRun ? `${selectedActionRun.repository}\u0000${selectedActionRun.run.id}` : ""))
+	const actionDetailRows = AsyncResult.isSuccess(actionDetailResult) && actionDetailResult.value ? flattenRunRows(actionDetailResult.value) : []
+	const workspaceItemsLength = activeWorkspaceSurface === "overview" ? overviewRows.length : selectedActionRun ? actionDetailRows.length : actionRuns.length
+	useClampedIndex(workspaceItemsLength, setWorkspaceSelectedIndex)
 	const visibleFilterText = filterMode ? filterDraft : filterQuery
 	const username = AsyncResult.isSuccess(usernameResult) ? usernameResult.value : null
 
@@ -301,7 +330,12 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		resetHydration,
 		selectPullRequestByUrl,
 	} = prSurface
-	const isInitialLoading = !startupLoadComplete && pullRequestStatus === "loading" && pullRequests.length === 0
+	useEffect(() => {
+		setSelectedActionRun(null)
+		setWorkspaceSelectedIndex(0)
+		setOverviewDetail(null)
+	}, [selectedRepository, actionsFilter])
+	const isInitialLoading = activeWorkspaceSurface === "pullRequests" && !startupLoadComplete && pullRequestStatus === "loading" && pullRequests.length === 0
 
 	const issueSurface = useIssueSurface({
 		username,
@@ -351,7 +385,7 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		activeWorkspaceSurface,
 		detectedRepository,
 		mockRepositoryCatalog,
-		organization: config.organization,
+		scope: config.scope,
 		flashNotice,
 	})
 	const {
@@ -420,7 +454,8 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		notice,
 		headerFooterWidth,
 		selectedRepository,
-		organization: config.organization,
+		scope: config.scope,
+		workspaceName: config.workspaceName,
 	})
 	const { updatePullRequest, updateIssue, markPullRequestCompleted, restoreOptimisticPullRequest } = useItemMutations({
 		pullRequests,
@@ -510,7 +545,7 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		username,
 		recentRepositories,
 		favoriteRepositories,
-		organization: config.organization,
+		scope: config.scope,
 		detectedRepository,
 		pullRequestLoad,
 		issueLoad,
@@ -805,6 +840,76 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		openUrl,
 		flashNotice,
 	})
+	const openOverviewRow = (row: OverviewRow) => setOverviewDetail(row)
+	const openOverviewSelection = () => {
+		const row = overviewDetail ?? overviewRows[workspaceSelectedIndex]
+		if (overviewDetail && row) void openUrl(row.kind === "issue" ? row.issue.url : row.pullRequest.url).catch((error) => flashNotice(String(error)))
+		else if (row) openOverviewRow(row)
+	}
+	const overviewSelection = overviewDetail ?? overviewRows[workspaceSelectedIndex]
+	const contextPullRequest =
+		activeWorkspaceSurface === "overview"
+			? overviewSelection?.kind === "pullRequest"
+				? overviewSelection.pullRequest
+				: null
+			: activeWorkspaceSurface === "pullRequests"
+				? selectedPullRequest
+				: null
+	const contextAction = activeWorkspaceSurface === "actions" ? (selectedActionRun ?? actionRuns[workspaceSelectedIndex]) : null
+	const contextRun = contextAction && selectedActionRun && AsyncResult.isSuccess(actionDetailResult) && actionDetailResult.value ? actionDetailResult.value : contextAction?.run
+	const contextRepository = contextAction?.repository
+	const visibleGardnContext = useMemo<GardnHandoffContext | null>(() => {
+		if (contextPullRequest) return { kind: "pullRequest", pullRequest: contextPullRequest }
+		if (contextRepository && contextRun) return { kind: "workflowRun", repository: contextRepository, run: contextRun }
+		return null
+	}, [contextPullRequest, contextRepository, contextRun])
+	const setGardnContext = useAtomSet(gardnContextAtom)
+	useEffect(() => {
+		setGardnContext(visibleGardnContext)
+	}, [setGardnContext, visibleGardnContext])
+	const openGardnAgentPicker = () => {
+		if (!gardnHandoffAvailable()) {
+			flashNotice("Gardn is unavailable; set GARDN_BIN_PATH and GARDN_SOCKET_PATH.")
+			return
+		}
+		const context = visibleGardnContext
+		if (context === null) {
+			flashNotice("Select a pull request or workflow run first.")
+			return
+		}
+		setGardnAgentPicker({ context, contextPreview: gardnContextText(context), agents: [], selectedIndex: 0, loading: true, sending: false, error: null })
+		void listGardnAgents()
+			.then((agents) => setGardnAgentPicker((current) => (current.context === context ? { ...current, agents, loading: false } : current)))
+			.catch((error) =>
+				setGardnAgentPicker((current) => (current.context === context ? { ...current, loading: false, error: error instanceof Error ? error.message : String(error) } : current)),
+			)
+	}
+	const openActionSelection = () => {
+		if (selectedActionRun) {
+			const row = actionDetailRows[workspaceSelectedIndex]
+			if (row) void openUrl(row.job.url).catch((error) => flashNotice(String(error)))
+			return
+		}
+		setSelectedActionRun(actionRuns[workspaceSelectedIndex] ?? null)
+		setWorkspaceSelectedIndex(0)
+	}
+	const sendToGardnAgent = () => {
+		const picker = registry.get(activeModalAtom)
+		if (picker._tag !== "GardnAgentPicker") return
+		const agent = picker.agents[picker.selectedIndex]
+		const context = picker.context
+		if (!agent || !context || picker.loading || picker.sending) return
+		setGardnAgentPicker((current) => ({ ...current, sending: true, error: null }))
+		void sendGardnContext({ target: agent.target, context })
+			.then(() => {
+				const current = registry.get(activeModalAtom)
+				if (current._tag === "GardnAgentPicker" && current.context === context) closeActiveModal()
+				flashNotice(`Sent context to ${agent.name}.`)
+			})
+			.catch((error) =>
+				setGardnAgentPicker((current) => (current.context === context ? { ...current, sending: false, error: error instanceof Error ? error.message : String(error) } : current)),
+			)
+	}
 
 	const { openThemeModal, closeThemeModal, moveThemeSelection, updateThemeQuery, toggleThemeTone, toggleThemeMode, editThemeQuery } = themeModalActions
 
@@ -822,9 +927,14 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 	})
 
 	const openRepositoryPicker = () => {
-		setOpenRepositoryModal({ query: selectedRepository ?? "", error: null })
+		setOpenRepositoryModal({ query: "", error: null })
 	}
 	const openRepositoryFromInput = () => {
+		if (openRepositoryModal.query.trim() === "") {
+			closeActiveModal()
+			goUpWorkspaceScope()
+			return
+		}
 		const repository = parseRepositoryInput(openRepositoryModal.query)
 		if (!repository) {
 			setOpenRepositoryModal((current) => ({ ...current, error: "Enter a repository as owner/name or a GitHub URL." }))
@@ -883,6 +993,7 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		selectedRepository,
 		refreshPullRequests,
 		refreshIssues: refreshIssuesIfIdle,
+		openGardnAgentPicker,
 		loadMorePullRequests,
 		loadPullRequestDiff,
 		flashNotice,
@@ -930,11 +1041,12 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 			visiblePullRequests,
 			issues,
 			repositoryItems,
+			workspaceItemsLength,
 			loadMoreSlotAvailable,
 			issueLoadMoreSlotAvailable,
 			groupStarts,
 			getCurrentGroupIndex: (current) => groupIndexAt(groupStarts, current),
-			setSelectedIndex,
+			setSelectedIndex: activeWorkspaceSurface === "overview" || activeWorkspaceSurface === "actions" ? setWorkspaceSelectedIndex : setSelectedIndex,
 			setSelectedIssueIndex,
 			setSelectedRepositoryIndex,
 		})
@@ -964,6 +1076,7 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		openRepositoryModalActive,
 		commentModalActive,
 		deleteCommentModalActive,
+		gardnAgentPickerActive,
 		commandPaletteActive,
 		filterMode,
 		diffFullView,
@@ -1036,6 +1149,7 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		issuesLength: issues.length,
 		repositoryItemsLength: repositoryItems.length,
 		selectedRepository,
+		workspaceItemsLength,
 		selectedPullRequest,
 		selectedIssue,
 		selectedRepositoryItem,
@@ -1045,11 +1159,37 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		loadMorePullRequests,
 		loadMoreIssues,
 		openSelectedRepository,
+		openOverviewSelection,
+		openActionSelection,
+		gardnAgentPickerCtx: {
+			close: closeActiveModal,
+			send: sendToGardnAgent,
+			moveSelection: (delta) =>
+				setGardnAgentPicker((current) => ({
+					...current,
+					selectedIndex: current.agents.length === 0 ? 0 : Math.max(0, Math.min(current.agents.length - 1, current.selectedIndex + delta)),
+				})),
+			visibleCount: gardnAgentPicker.agents.length,
+			loading: gardnAgentPicker.loading,
+			sending: gardnAgentPicker.sending,
+		},
 		openRepositoryPicker,
 		toggleFavoriteRepository,
 		removeSelectedRepository,
 		openFilterModal,
-		goUpWorkspaceScope,
+		goUpWorkspaceScope: () => {
+			if (activeWorkspaceSurface === "overview" && overviewDetail) {
+				setOverviewDetail(null)
+				return true
+			}
+			if (activeWorkspaceSurface === "actions" && selectedActionRun) {
+				setSelectedActionRun(null)
+				setWorkspaceSelectedIndex(0)
+				return true
+			}
+			return goUpWorkspaceScope()
+		},
+		actionDetailActive: (activeWorkspaceSurface === "actions" && selectedActionRun !== null) || (activeWorkspaceSurface === "overview" && overviewDetail !== null),
 		switchQueueMode,
 		switchWorkspaceSurface,
 		cycleWorkspaceSurface,
@@ -1062,7 +1202,7 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		stepSelectedDownWithLoadMore,
 		moveSelectedToPreviousGroup,
 		moveSelectedToNextGroup,
-		setSelectedIndex,
+		setSelectedIndex: activeWorkspaceSurface === "overview" || activeWorkspaceSurface === "actions" ? setWorkspaceSelectedIndex : setSelectedIndex,
 		setSelectedIssueIndex,
 		setSelectedRepositoryIndex,
 		handleQuitOrClose,
@@ -1206,10 +1346,28 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 		dividerJunctionAt,
 		layout,
 		derivations,
-		headerProps: { selectedRepository, homeCrumb, breadcrumbSeparatorText, headerLeftWidth, headerRepoWidth, homeCrumbHovered, setHomeCrumbHovered, goUpWorkspaceScope },
+		headerProps: {
+			selectedRepository,
+			homeCrumb,
+			breadcrumbSeparatorText,
+			headerLeftWidth,
+			headerRepoWidth,
+			homeCrumbHovered,
+			setHomeCrumbHovered,
+			goUpWorkspaceScope,
+			openScopePicker: openRepositoryPicker,
+		},
 		contentProps: {
 			showScrollbars,
 			activeWorkspaceSurface,
+			workspaceSelectedIndex,
+			setWorkspaceSelectedIndex,
+			openOverviewRow,
+			overviewDetail,
+			openBrowser: (url: string) => {
+				void openUrl(url).catch((error) => flashNotice(String(error)))
+			},
+			closeOverviewDetail: () => setOverviewDetail(null),
 			commentsViewActive,
 			diffFullView,
 			runsView,
@@ -1273,6 +1431,15 @@ export const useAppShell = ({ systemThemeGeneration }: UseAppShellInput) => {
 			commandPaletteCommands,
 			selectedCommandIndex,
 			onSelectCommandIndex: selectCommandPaletteIndex,
+			scopeRepositories: [...new Set([...launchScopeRepositories(config.scope), ...repositoryItems.map((item) => item.repository)])],
+			onChooseScope: (repository: string | null) => {
+				closeActiveModal()
+				if (repository === null) goUpWorkspaceScope()
+				else switchViewTo({ _tag: "Repository", repository })
+			},
+			onSelectGardnAgent: (index: number) => setGardnAgentPicker((current) => ({ ...current, selectedIndex: index })),
+			onSendGardnAgent: sendToGardnAgent,
+			gardnAgentPicker,
 			onRunCommand: runCommandPaletteCommand,
 			onCommentChange: setCommentEditorValue,
 			onCommentSubmit: submitCommentModal,

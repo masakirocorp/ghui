@@ -41,6 +41,7 @@ export interface ModalLayouts {
 	readonly Merge: ModalRect
 	readonly Theme: ModalRect
 	readonly OpenRepository: ModalRect
+	readonly GardnAgentPicker: ModalRect
 	readonly CommandPalette: ModalRect
 }
 
@@ -74,7 +75,8 @@ export const computeModalLayouts = ({ contentWidth, terminalHeight, longestLabel
 		SubmitReview: sized(54, 84, 8, 18),
 		Merge: sized(46, 68, 14, 20),
 		Theme: sized(38, 58, 12, 16),
-		OpenRepository: sized(46, 76, 8, 8),
+		OpenRepository: sized(46, 76, 8, 20),
+		GardnAgentPicker: sized(58, 96, 8, 20),
 		CommandPalette: sized(50, 88, 8, 24),
 	}
 }

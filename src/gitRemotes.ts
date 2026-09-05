@@ -1,4 +1,4 @@
-const GITHUB_REMOTE_PATTERN = /^(?:https?:\/\/github\.com\/|git@github\.com:)([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/
+const GITHUB_REMOTE_PATTERN = /^(?:https?:\/\/github\.com\/|ssh:\/\/git@github\.com\/|git@github\.com:)([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/
 
 export const parseGitRemoteUrl = (url: string): string | null => {
 	const match = url.trim().match(GITHUB_REMOTE_PATTERN)

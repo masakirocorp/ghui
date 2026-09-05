@@ -1,5 +1,5 @@
 import type { IssueItem, PullRequestItem } from "../domain.js"
-import { repositoryBelongsToOrganization, type GitHubOrganization } from "../launchOptions.js"
+import { launchScopeIncludesRepository, launchScopeRepositories, type LaunchScope, parseGitHubRepository } from "../launchOptions.js"
 import type { RepoRollupRow } from "../services/CacheService.js"
 import type { RepositoryListItem } from "../ui/RepoList.js"
 
@@ -14,7 +14,7 @@ export interface BuildRepositoryItemsInput {
 	readonly detectedRepository: string | null
 	readonly repoRollup: readonly RepoRollupRow[]
 	readonly pullRequests: readonly PullRequestItem[]
-	readonly organization: GitHubOrganization | null
+	readonly scope: LaunchScope
 	readonly allIssues: readonly IssueItem[]
 	readonly mockRepositoryCatalog: readonly CatalogEntry[]
 }
@@ -33,36 +33,43 @@ export const buildRepositoryItems = ({
 	detectedRepository,
 	repoRollup,
 	pullRequests,
-	organization,
+	scope,
 	allIssues,
 	mockRepositoryCatalog,
 }: BuildRepositoryItemsInput): readonly RepositoryListItem[] => {
+	const activeScope = scope
 	const byRepository = new Map<string, RepositoryListItem>()
-	const catalog = new Map(mockRepositoryCatalog.filter((item) => repositoryBelongsToOrganization(item.repository, organization)).map((item) => [item.repository, item]))
+	const catalog = new Map<string, CatalogEntry>()
+	for (const item of mockRepositoryCatalog) {
+		const repository = parseGitHubRepository(item.repository)
+		if (repository !== null && launchScopeIncludesRepository(activeScope, repository)) catalog.set(repository, item)
+	}
 	const ensure = (repository: string): RepositoryListItem => {
-		const existing = byRepository.get(repository)
+		const canonical = parseGitHubRepository(repository) ?? repository
+		const existing = byRepository.get(canonical)
 		if (existing) return existing
-		const catalogItem = catalog.get(repository)
+		const catalogItem = catalog.get(canonical)
 		const item: RepositoryListItem = {
-			repository,
+			repository: canonical,
 			pullRequestCount: 0,
 			issueCount: 0,
-			current: repository === detectedRepository,
-			favorite: favoriteRepositories[repository] === true,
-			recent: recentRepositories.includes(repository),
+			current: canonical === detectedRepository,
+			favorite: favoriteRepositories[canonical] === true || favoriteRepositories[repository] === true,
+			recent: recentRepositories.some((recent) => (parseGitHubRepository(recent) ?? recent) === canonical),
 			lastActivityAt: null,
 			description: catalogItem?.description ?? null,
 		}
-		byRepository.set(repository, item)
+		byRepository.set(canonical, item)
 		return item
 	}
+	for (const repository of launchScopeRepositories(activeScope)) ensure(repository)
 	for (const repository of [...recentRepositories, ...Object.keys(favoriteRepositories), ...(detectedRepository ? [detectedRepository] : [])]) {
-		if (repositoryBelongsToOrganization(repository, organization)) ensure(repository)
+		if (launchScopeIncludesRepository(activeScope, repository)) ensure(repository)
 	}
 	for (const row of repoRollup) {
-		if (!repositoryBelongsToOrganization(row.repository, organization)) continue
+		if (!launchScopeIncludesRepository(activeScope, row.repository)) continue
 		const item = ensure(row.repository)
-		byRepository.set(row.repository, {
+		byRepository.set(item.repository, {
 			...item,
 			pullRequestCount: row.pullRequestCount,
 			issueCount: row.issueCount,
@@ -71,18 +78,15 @@ export const buildRepositoryItems = ({
 	}
 	const liveCounts = new Map<string, { pullRequestCount: number; issueCount: number; lastActivityAt: Date | null }>()
 	const bumpLive = (repository: string, at: Date, key: "pullRequestCount" | "issueCount") => {
-		if (!repositoryBelongsToOrganization(repository, organization)) return
-		const entry = liveCounts.get(repository) ?? { pullRequestCount: 0, issueCount: 0, lastActivityAt: null }
+		if (!launchScopeIncludesRepository(activeScope, repository)) return
+		const canonical = parseGitHubRepository(repository) ?? repository
+		const entry = liveCounts.get(canonical) ?? { pullRequestCount: 0, issueCount: 0, lastActivityAt: null }
 		entry[key] = entry[key] + 1
 		if (!entry.lastActivityAt || entry.lastActivityAt < at) entry.lastActivityAt = at
-		liveCounts.set(repository, entry)
+		liveCounts.set(canonical, entry)
 	}
-	for (const pullRequest of pullRequests) {
-		bumpLive(pullRequest.repository, pullRequest.updatedAt, "pullRequestCount")
-	}
-	for (const issue of allIssues) {
-		bumpLive(issue.repository, issue.updatedAt, "issueCount")
-	}
+	for (const pullRequest of pullRequests) bumpLive(pullRequest.repository, pullRequest.updatedAt, "pullRequestCount")
+	for (const issue of allIssues) bumpLive(issue.repository, issue.updatedAt, "issueCount")
 	for (const [repository, entry] of liveCounts) {
 		const current = ensure(repository)
 		const lastActivityAt = entry.lastActivityAt && (!current.lastActivityAt || current.lastActivityAt < entry.lastActivityAt) ? entry.lastActivityAt : current.lastActivityAt

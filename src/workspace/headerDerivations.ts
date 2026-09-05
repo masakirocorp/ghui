@@ -1,5 +1,5 @@
 import { fitCell } from "../ui/primitives.js"
-import type { GitHubOrganization } from "../launchOptions.js"
+import { launchScopeDisplayName, launchScopeIncludesRepository, type LaunchScope } from "../launchOptions.js"
 export interface HeaderDerivations {
 	readonly headerRight: string
 	readonly headerLeftWidth: number
@@ -21,14 +21,15 @@ export const computeHeaderDerivations = (input: {
 	readonly notice: string | null
 	readonly headerFooterWidth: number
 	readonly selectedRepository: string | null
-	readonly organization?: GitHubOrganization | null
+	readonly scope: LaunchScope
+	readonly workspaceName: string | null
 }): HeaderDerivations => {
-	const { username, notice, headerFooterWidth, selectedRepository, organization = null } = input
+	const { username, notice, headerFooterWidth, selectedRepository, scope, workspaceName } = input
 	const headerRight = username ? `@${username}` : ""
 	const headerLeftWidth = Math.max(0, headerFooterWidth - headerRight.length)
 	const footerNotice = notice ? fitCell(notice, headerFooterWidth) : null
-	const homeCrumb = organization === null ? "HOME" : `HOME · ${organization}`
-	const breadcrumbSeparator = "/"
+	const homeCrumb = launchScopeDisplayName(scope, workspaceName)
+	const breadcrumbSeparator = selectedRepository !== null && !launchScopeIncludesRepository(scope, selectedRepository) ? "/ outside scope /" : "/"
 	const breadcrumbSeparatorText = ` ${breadcrumbSeparator} `
 	const headerRepoWidth = selectedRepository ? Math.max(0, headerLeftWidth - homeCrumb.length - breadcrumbSeparatorText.length) : 0
 	return { headerRight, headerLeftWidth, footerNotice, homeCrumb, breadcrumbSeparator, breadcrumbSeparatorText, headerRepoWidth }

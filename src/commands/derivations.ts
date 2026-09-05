@@ -5,6 +5,8 @@ import { commentsViewActiveAtom, selectedCommentSubjectAtom } from "../ui/commen
 import { detailFullViewAtom } from "../ui/detail/atoms.js"
 import { diffFullViewAtom, diffReadyAtom } from "../ui/diff/atoms.js"
 import { runsFullViewAtom } from "../ui/runs/atoms.js"
+import { selectedActionRunAtom } from "../ui/actions/atoms.js"
+import { gardnContextAtom } from "../services/gardnAtoms.js"
 import { filterModeAtom, filterQueryAtom } from "../ui/filter/atoms.js"
 import { selectedIssueAtom } from "../ui/issues/atoms.js"
 import {
@@ -53,6 +55,30 @@ export const noSelectedItemReasonAtom = Atom.make((get): string | null => {
 	if (get(workspaceSurfaceAtom) === "issues") return get(selectedIssueAtom) ? null : "Select an issue first."
 	return get(noPullRequestReasonAtom)
 })
+
+export const selectedContextRepositoryAtom = Atom.make((get): string | null => {
+	const context = get(gardnContextAtom)
+	if (context !== null) return context.kind === "pullRequest" ? context.pullRequest.repository : context.repository
+	switch (get(workspaceSurfaceAtom)) {
+		case "pullRequests":
+			return get(selectedPullRequestAtom)?.repository ?? get(selectedRepositoryAtom)
+		case "issues":
+			return get(selectedIssueAtom)?.repository ?? get(selectedRepositoryAtom)
+		case "actions":
+			return get(selectedActionRunAtom)?.repository ?? get(selectedRepositoryAtom)
+		case "overview":
+		case "repos":
+			return get(selectedRepositoryAtom)
+	}
+})
+
+export const noContextRepositoryReasonAtom = Atom.make((get) => (get(selectedContextRepositoryAtom) === null ? "Select a repository or an item first." : null))
+
+export const contextPullRequestAtom = Atom.make((get) => {
+	const context = get(gardnContextAtom)
+	return context?.kind === "pullRequest" ? context.pullRequest : null
+})
+export const noContextPullRequestReasonAtom = Atom.make((get) => (get(contextPullRequestAtom) ? null : "Select a pull request first."))
 
 export const filterClearDisabledReasonAtom = Atom.make((get) => (get(filterQueryAtom).length > 0 || get(filterModeAtom) ? null : "No filter is active."))
 
