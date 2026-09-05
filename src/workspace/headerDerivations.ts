@@ -1,4 +1,4 @@
-import { fitCell } from "../ui/primitives.js"
+import { fitCell, trimCell } from "../ui/primitives.js"
 import { launchScopeDisplayName, launchScopeIncludesRepository, type LaunchScope } from "../launchOptions.js"
 export interface HeaderDerivations {
 	readonly headerRight: string
@@ -28,9 +28,10 @@ export const computeHeaderDerivations = (input: {
 	const headerRight = username ? `@${username}` : ""
 	const headerLeftWidth = Math.max(0, headerFooterWidth - headerRight.length)
 	const footerNotice = notice ? fitCell(notice, headerFooterWidth) : null
-	const homeCrumb = launchScopeDisplayName(scope, workspaceName)
 	const breadcrumbSeparator = selectedRepository !== null && !launchScopeIncludesRepository(scope, selectedRepository) ? "/ outside scope /" : "/"
 	const breadcrumbSeparatorText = ` ${breadcrumbSeparator} `
+	const homeWidth = selectedRepository ? Math.max(0, Math.floor((headerLeftWidth - breadcrumbSeparatorText.length) / 2)) : headerLeftWidth
+	const homeCrumb = homeWidth > 0 ? trimCell(launchScopeDisplayName(scope, workspaceName), homeWidth) : ""
 	const headerRepoWidth = selectedRepository ? Math.max(0, headerLeftWidth - homeCrumb.length - breadcrumbSeparatorText.length) : 0
 	return { headerRight, headerLeftWidth, footerNotice, homeCrumb, breadcrumbSeparator, breadcrumbSeparatorText, headerRepoWidth }
 }

@@ -84,15 +84,19 @@ export const launchScopeIncludesRepository = (scope: LaunchScope, repository: st
 
 export const launchScopeDisplayName = (scope: LaunchScope, workspaceName: string | null = null): string => {
 	const explicitName = workspaceName?.trim()
-	if (explicitName) return explicitName
+	let scopeName: string
 	switch (scope._tag) {
 		case "User":
-			return "HOME"
+			scopeName = explicitName ? "Personal" : "HOME"
+			break
 		case "Organization":
-			return `ORG ${scope.organization}`
+			scopeName = `ORG ${scope.organization}`
+			break
 		case "Repositories":
-			return scope.repositories.join(", ")
+			scopeName = scope.repositories.join(", ")
+			break
 	}
+	return explicitName ? `${scopeName} · ${explicitName}` : scopeName
 }
 
 export const launchScopeCacheKey = (scope: LaunchScope): string => {

@@ -1,5 +1,12 @@
 # @kitlangton/ghui
 
+## 0.10.0-masakiro.6
+
+### Patch Changes
+
+- Keep the active organization or repositories visible beside the Space name.
+- Reserve breadcrumb space for the selected repository in narrow terminals.
+
 ## 0.10.0-masakiro.5
 
 ### Minor Changes

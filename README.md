@@ -85,6 +85,8 @@ a repository narrows that scope. Returning HOME restores the launch scope,
 not an unrestricted GitHub view. Explicit outside-scope repository views
 remain available. Scope is never written to configuration and does not
 change when a shell changes directories.
+The header shows the active organization or repositories before the Space name.
+Click it to inspect or change repository narrowing.
 
 `GHUI_SHOW_SCROLLBARS` and `GHUI_SYSTEM_THEME_AUTO_RELOAD` take precedence
 over their saved settings for that launch only. Boolean overrides accept the

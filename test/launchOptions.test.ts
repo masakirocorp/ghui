@@ -3,7 +3,6 @@ import { buildRepositoryItems } from "../src/workspace/repositoryItems.js"
 import { computeHeaderDerivations } from "../src/workspace/headerDerivations.js"
 import {
 	canonicalRepositoryList,
-	launchScopeDisplayName,
 	launchScopeIncludesRepository,
 	parseLaunchOptions,
 	parseGitHubOrganization,
@@ -175,7 +174,6 @@ describe("organization query and cache scope", () => {
 		expect(launchScopeIncludesRepository(scope, "ORG/ONE")).toBe(true)
 		expect(launchScopeIncludesRepository(scope, "org/two")).toBe(false)
 		expect(scopeDetectedRepository("org/one", scope)).toBeNull()
-		expect(launchScopeDisplayName(scope, "Space")).toBe("Space")
 	})
 
 	test("repository catalog seeds all explicit repositories and excludes unrelated live data", () => {
@@ -200,7 +198,7 @@ describe("organization query and cache scope", () => {
 			headerFooterWidth: 80,
 			selectedRepository: null,
 			scope: { _tag: "Organization", organization },
-			workspaceName: null,
+			workspaceName: "Space",
 		})
 		expect(header.homeCrumb).toContain("kitlangton")
 	})
